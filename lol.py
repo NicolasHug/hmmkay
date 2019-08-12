@@ -21,7 +21,7 @@ pi = np.array([0.6, 0.4])
 A = np.array([[0.7, 0.3], [0.4, 0.6]])
 B = np.array([[0.1, 0.4, 0.5], [0.6, 0.3, 0.1]])
 
-n_iter = 10
+n_iter = 1
 
 model = hmmlearn.hmm.MultinomialHMM(
     n_components=A.shape[0], init_params="", tol=0, n_iter=n_iter

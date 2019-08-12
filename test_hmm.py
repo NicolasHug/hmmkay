@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import hmmlearn.hmm
+from scipy.special import logsumexp
 
 from hmmidunnomaybe import HMM
 
@@ -37,23 +38,25 @@ def toy_data():
 def test_likelihood_alpha_beta(toy_data):
     # Make sure computing likelihood with just alpha is the same as computing
     # it with alpha and beta
+    # For all t, the likelihood is equal to sum (alpha[:, t] * beta[:, t])
 
-    def likelihood2(hmm, seq, t):
+    def log_likelihood2(hmm, seq):
         sequences = np.array(seq)
         n_obs = sequences.shape[0]
-        alpha = np.empty(shape=(hmm.n_hidden_states, n_obs))
-        beta = np.empty(shape=(hmm.n_hidden_states, n_obs))
-        hmm._forward(seq, alpha)
-        hmm._backward(seq, beta)
-        return np.sum(alpha[:, t] * beta[:, t])
+        log_alpha = np.empty(shape=(hmm.n_hidden_states, n_obs))
+        log_beta = np.empty(shape=(hmm.n_hidden_states, n_obs))
+        hmm._forward(seq, log_alpha)
+        hmm._backward(seq, log_beta)
+        # return likelihoods computed at all ts
+        return logsumexp(log_alpha + log_beta, axis=0)
 
     pi, A, B = toy_data
 
     hmm = HMM(pi, A, B)
     X = np.array([[0, 1, 2, 0, 1, 2, 0, 1]])
-    likelihood = hmm.likelihood(X)
-    for t in range(X.shape[1]):
-        assert likelihood == pytest.approx(likelihood2(hmm, X[0], t))
+    expected_likelihood = hmm.log_likelihood(X)
+
+    np.testing.assert_allclose(expected_likelihood, log_likelihood2(hmm, X[0]))
 
 
 def test_loglikelihood(toy_data):
@@ -69,7 +72,7 @@ def test_loglikelihood(toy_data):
     )
 
     expected = hmm_learn_model.score(**to_weird_format(sequences))
-    assert np.log(hmm.likelihood(sequences)) == pytest.approx(expected)
+    assert hmm.log_likelihood(sequences) == pytest.approx(expected)
 
 
 def test_decode(toy_data):
