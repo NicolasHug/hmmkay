@@ -83,9 +83,9 @@ def test_decode(toy_params):
     hmm = HMM(pi, A, B)
     hmm_learn_model = get_hmm_learn_model(hmm)
 
-    sequences = np.array(
-        [[0, 1, 2, 0, 1, 2, 2, 1], [2, 1, 0, 0, 2, 0, 0, 1], [2, 0, 1, 1, 1, 1, 2, 0]]
-    )
+    rng = np.random.RandomState(0)
+    n_seq, n_obs = 10, 100
+    sequences = rng.randint(B.shape[1], size=(n_seq, n_obs))
 
     expected = hmm_learn_model.decode(**to_weird_format(sequences))[1].reshape(
         sequences.shape

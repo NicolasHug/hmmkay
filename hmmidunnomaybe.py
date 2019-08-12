@@ -194,14 +194,14 @@ class HMM:
 def _sample_one(n_obs, pi, A, B, seed):
     np.random.seed(seed)  # local to this numba function, not global numpy
 
-    observations = []
+    seq = []
     s = _choice(pi)
     for _ in range(n_obs):
         obs = _choice(B[s])
-        observations.append(obs)
+        seq.append(obs)
         s = _choice(A[s])
 
-    return observations
+    return seq
 
 
 @njit
