@@ -1,8 +1,9 @@
 from numba import njit
+from numba.typed import List
 import numpy as np
 from scipy.special import logsumexp
 
-from _utils import _choice, _logsumexp, _check_array_sums_to_1
+from _utils import _choice, _logsumexp, _check_array_sums_to_1, _allocate_or_reuse
 
 
 class HMM:
@@ -31,12 +32,15 @@ class HMM:
         sequences = np.array(sequences)
         n_obs = sequences.shape[1]
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs))
+
         total_log_likelihood = 0
         for seq in sequences:
+            n_obs = len(seq)
             total_log_likelihood += self._forward(seq, log_alpha)
         return total_log_likelihood
 
     def decode(self, sequences):
+        sequences = np.array(sequences)
         n_obs = sequences.shape[1]
         log_V = np.empty(shape=(self.n_hidden_states, n_obs))
         back_path = np.empty(shape=(self.n_hidden_states, n_obs), dtype=np.int32)
@@ -86,13 +90,6 @@ class HMM:
             )
             self._check_matrices_conditioning()
 
-    def _check_matrices_conditioning(self):
-
-        _check_array_sums_to_1(self.pi, "init_probas")
-        for s in range(self.n_hidden_states):
-            _check_array_sums_to_1(self.A[s], f"Row {s} of A")
-            _check_array_sums_to_1(self.B[s], f"Row {s} of B")
-
     def _viterbi(self, seq, log_V, back_path):
         # dummy wrapper for conveniency
         _viterbi(seq, self._log_pi, self._log_A, self._log_B, log_V, back_path)
@@ -104,6 +101,13 @@ class HMM:
     def _backward(self, seq, log_beta):
         # dummy wrapper for conveniency
         return _backward(seq, self._log_pi, self._log_A, self._log_B, log_beta)
+
+    def _check_matrices_conditioning(self):
+
+        _check_array_sums_to_1(self.pi, "init_probas")
+        for s in range(self.n_hidden_states):
+            _check_array_sums_to_1(self.A[s], f"Row {s} of A")
+            _check_array_sums_to_1(self.B[s], f"Row {s} of B")
 
     # pi, A and B are respectively init_probas, transitions and emissions
     # matrices. _log_pi, _log_A and _log_B are updated each time pi, A, or B
@@ -157,6 +161,7 @@ class HMM:
 
 @njit(cache=True)
 def _sample_one(n_obs, pi, A, B, seed):
+    """Return (observations, hidden_states) sample"""
     np.random.seed(seed)  # local to this numba function, not global numpy
 
     observations = []
@@ -182,14 +187,14 @@ def _forward(seq, log_pi, log_A, log_B, log_alpha):
     # since log(sum(ai . bj)) =
     #       log(sum(exp(log_ai + log_bi)))
 
-    n_obs = seq.shape[0]
+    n_obs = len(seq)
     n_hidden_states = log_pi.shape[0]
     log_alpha[:, 0] = log_pi + log_B[:, seq[0]]
     for t in range(1, n_obs):
         for s in range(n_hidden_states):
             log_alpha[s, t] = _logsumexp(log_alpha[:, t - 1] + log_A[:, s])
             log_alpha[s, t] += log_B[s, seq[t]]
-    return _logsumexp(log_alpha[:, -1])
+    return _logsumexp(log_alpha[:, n_obs - 1])
 
 
 @njit(cache=True)
@@ -209,7 +214,7 @@ def _backward(seq, log_pi, log_A, log_B, log_beta):
 
 @njit(cache=True)
 def _viterbi(seq, log_pi, log_A, log_B, log_V, back_path):
-    """Fills V array with log probabilities and back_path with back links"""
+    """Fill V array with log probabilities and back_path with back links"""
     # V[i, t] = max_{s1...st-1} P(O1, ... Ot, s1, ... st-1, st=i / lambda)
     n_obs = seq.shape[0]
     n_hidden_states = log_pi.shape[0]
@@ -224,6 +229,7 @@ def _viterbi(seq, log_pi, log_A, log_B, log_V, back_path):
 
 @njit(cache=True)
 def _get_best_path(log_V, back_path, best_path):
+    """Fill out best_path array"""
     s = np.argmax(log_V[:, -1])
     for t in range(back_path.shape[1] - 1, -1, -1):
         best_path[t] = s
@@ -232,6 +238,7 @@ def _get_best_path(log_V, back_path, best_path):
 
 @njit(cache=True)
 def _do_EM_step(sequences, log_pi, log_A, log_B, log_alpha, log_beta, log_E, log_gamma):
+    """Return A, B and C after EM step."""
     # E STEP (over all sequences)
     # Accumulators for parameters of the hmm. They are summed over for
     # each sequence, then normalized in the M-step.

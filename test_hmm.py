@@ -137,3 +137,105 @@ def test_sample(toy_params):
     )
     assert not np.all(obs_sequences == obs_sequences_diff)
     assert not np.all(hidden_state_sequences == hidden_state_sequences_diff)
+
+
+class TestAgainstWikipedia(object):
+    # Stolen from hmmlearn
+    # http://en.wikipedia.org/wiki/Hidden_Markov_model
+    # http://en.wikipedia.org/wiki/Viterbi_algorithm
+    def setup_method(self, method):
+        pi = np.array([0.6, 0.4])
+        A = np.array([[0.7, 0.3], [0.4, 0.6]])
+        B = np.array([[0.1, 0.4, 0.5], [0.6, 0.3, 0.1]])
+        self.hmm = HMM(pi, A, B)
+
+    def test_decode(self):
+        # From http://en.wikipedia.org/wiki/Viterbi_algorithm:
+        X = [[0, 1, 2]]
+        hidden_states_seq = self.hmm.decode(X)
+        # TODO : test logprob when/if we return it
+        # assert round(np.exp(logprob), 5) == 0.01344
+        assert np.all(hidden_states_seq == [1, 0, 0])
+
+
+class TestAgainstWikipediaAgain(object):
+    # Stolen from hmmlearn
+    # http://en.wikipedia.org/wiki/Forward-backward_algorithm
+    def setup_method(self, method):
+        pi = [0.5, 0.5]
+        A = [[0.7, 0.3], [0.3, 0.7]]
+        B = [[0.9, 0.1], [0.2, 0.8]]
+        self.hmm = HMM(pi, A, B)
+
+    def test_forward_pass(self):
+        seq = np.array([0, 0, 1, 0, 0])
+        n_obs = seq.shape[0]
+        log_alpha = np.empty(shape=(self.hmm.n_hidden_states, n_obs))
+        log_likelihood = self.hmm._forward(seq, log_alpha)
+
+        expected_log_likelihood = -3.3725
+        assert log_likelihood == pytest.approx(expected_log_likelihood)
+        expected_alpha = np.array(
+            [
+                [0.4500, 0.1000],
+                [0.3105, 0.0410],
+                [0.0230, 0.0975],
+                [0.0408, 0.0150],
+                [0.0298, 0.0046],
+            ]
+        )
+        assert np.allclose(np.exp(log_alpha), expected_alpha.T, atol=1e-4)
+
+    def test_backward_pass(self):
+        seq = np.array([0, 0, 1, 0, 0])
+        n_obs = seq.shape[0]
+        log_beta = np.empty(shape=(self.hmm.n_hidden_states, n_obs))
+        self.hmm._backward(seq, log_beta)
+
+        expected_beta = np.array(
+            [
+                [0.0661, 0.0455],
+                [0.0906, 0.1503],
+                [0.4593, 0.2437],
+                [0.6900, 0.4100],
+                [1.0000, 1.0000],
+            ]
+        )
+        assert np.allclose(np.exp(log_beta), expected_beta.T, atol=1e-4)
+
+    def test_decode(self):
+        seq = [[0, 0, 1, 0, 0]]
+        hidden_states_seq = self.hmm.decode(seq)
+
+        expected_hidden_states_seq = [0, 0, 1, 0, 0]
+        assert np.all(hidden_states_seq == expected_hidden_states_seq)
+
+        # TODO: test that when supported
+        # reflogprob = -4.4590
+        # assert round(logprob, 4) == reflogprob
+
+    def test_gamma(self):
+        seq = np.array([0, 0, 1, 0, 0])
+        n_obs = seq.shape[0]
+        log_alpha = np.empty(shape=(self.hmm.n_hidden_states, n_obs))
+        log_beta = np.empty(shape=(self.hmm.n_hidden_states, n_obs))
+        log_likelihood = self.hmm._forward(seq, log_alpha)
+        self.hmm._backward(seq, log_beta)
+
+        expected_log_likelihood = -3.3725
+        assert log_likelihood == pytest.approx(expected_log_likelihood)
+
+        log_gamma = log_alpha + log_beta - log_likelihood
+        gamma = np.exp(log_gamma)
+        assert np.allclose(gamma.sum(axis=0), 1)
+
+        expected_gamma = np.array(
+            [
+                [0.8673, 0.1327],
+                [0.8204, 0.1796],
+                [0.3075, 0.6925],
+                [0.8204, 0.1796],
+                [0.8673, 0.1327],
+            ]
+        )
+        assert np.allclose(gamma, expected_gamma.T, atol=1e-4)
