@@ -59,7 +59,7 @@ def test_likelihood_alpha_beta(toy_params):
     np.testing.assert_allclose(expected_likelihood, log_likelihood2(hmm, X[0]))
 
 
-def test_loglikelihood(toy_params):
+def test_loglikelihood_against_hmmlearn(toy_params):
     # Basic test making sure hmmlearn has the same results
 
     pi, A, B = toy_params
@@ -75,7 +75,7 @@ def test_loglikelihood(toy_params):
     assert hmm.log_likelihood(sequences) == pytest.approx(expected)
 
 
-def test_decode(toy_params):
+def test_decode_against_hmmlearn(toy_params):
     # Basic test making sure hmmlearn has the same results
 
     pi, A, B = toy_params
@@ -93,7 +93,7 @@ def test_decode(toy_params):
     assert np.all(hmm.decode(sequences) == expected)
 
 
-def test_EM(toy_params):
+def test_EM_against_hmmlearn(toy_params):
     # Basic test making sure hmmlearn has the same results
 
     pi, A, B = toy_params
