@@ -103,7 +103,9 @@ def test_EM(toy_params):
     hmm_learn_model = get_hmm_learn_model(hmm)
     hmm._enable_sanity_checks = True
 
-    sequences = np.array([[0, 1, 2], [2, 1, 0], [2, 0, 1]])
+    rng = np.random.RandomState(0)
+    n_seq, n_obs = 10, 100
+    sequences = rng.randint(B.shape[1], size=(n_seq, n_obs))
 
     hmm.EM(sequences)
     hmm_learn_model.fit(**to_weird_format(sequences))
@@ -121,11 +123,17 @@ def test_sample(toy_params):
     hmm = HMM(pi, A, B)
     n_obs, n_seq = 10, 20
 
-    sequences = hmm.sample(n_seq=n_seq, n_obs=n_obs, seed=0)
-    assert sequences.shape == (n_seq, n_obs)
+    obs_sequences, hidden_state_sequences = hmm.sample(n_seq=n_seq, n_obs=n_obs, seed=0)
+    assert obs_sequences.shape == hidden_state_sequences.shape == (n_seq, n_obs)
 
-    sequences_same = hmm.sample(n_seq=n_seq, n_obs=n_obs, seed=0)
-    assert np.all(sequences == sequences_same)
+    obs_sequences_same, hidden_state_sequences_same = hmm.sample(
+        n_seq=n_seq, n_obs=n_obs, seed=0
+    )
+    assert np.all(obs_sequences == obs_sequences_same)
+    assert np.all(hidden_state_sequences == hidden_state_sequences_same)
 
-    sequences_diff = hmm.sample(n_seq=n_seq, n_obs=n_obs, seed=1)
-    assert not np.all(sequences == sequences_diff)
+    obs_sequences_diff, hidden_state_sequences_diff = hmm.sample(
+        n_seq=n_seq, n_obs=n_obs, seed=1
+    )
+    assert not np.all(obs_sequences == obs_sequences_diff)
+    assert not np.all(hidden_state_sequences == hidden_state_sequences_diff)

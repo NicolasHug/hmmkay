@@ -2,7 +2,7 @@ from numba import njit
 import numpy as np
 from scipy.special import logsumexp
 
-from _utils import _normalize, _choice, _logsumexp, _check_array_sums_to_1
+from _utils import _choice, _logsumexp, _check_array_sums_to_1
 
 
 class HMM:
@@ -52,77 +52,39 @@ class HMM:
     def sample(self, n_seq, n_obs, seed=0):
 
         rng = np.random.RandomState(seed)
-        sequences = [
-            _sample_one(n_obs, self.pi, self.A, self.B, seed=rng.randint(10000))
-            for _ in range(n_seq)
-        ]
-        return np.array(sequences)
+        sequences = np.array(
+            [
+                _sample_one(n_obs, self.pi, self.A, self.B, seed=rng.randint(10000))
+                for _ in range(n_seq)
+            ]
+        )
+        # Unzip array of (observations, hidden_states) into tuple of arrays
+        sequences = sequences.swapaxes(0, 1)
+        return sequences[0], sequences[1]
 
     def EM(self, sequences, n_iter=100):
         sequences = np.array(sequences)
         n_obs = sequences.shape[1]
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs))
         log_beta = np.empty(shape=(self.n_hidden_states, n_obs))
-
         # E[i, j, t] = P(st = i, st+1 = j / O, lambda)
         log_E = np.empty(shape=(self.n_hidden_states, self.n_hidden_states, n_obs - 1))
         # g[i, t] = P(st = i / O, lambda)
         log_gamma = np.empty(shape=(self.n_hidden_states, n_obs))
 
         for _ in range(self.n_iter):
-            # E STEP (over all sequences)
-            # Accumulators for parameters of the hmm. They are summed over for
-            # each sequence, then normalized in the M-step.
-            # These are homogeneous to probabilities, not log-probabilities.
-            pi_acc = np.zeros_like(self.pi)
-            A_acc = np.zeros_like(self.A)
-            B_acc = np.zeros_like(self.B)
 
-            for seq in sequences:
-                self._forward(seq, log_alpha)
-                self._backward(seq, log_beta)
-                log_likelihood = logsumexp(log_alpha[:, -1])
-
-                # Compute E
-                for t in range(n_obs - 1):
-                    for i in range(self.n_hidden_states):
-                        for j in range(self.n_hidden_states):
-                            log_E[i, j, t] = (
-                                log_alpha[i, t]
-                                + self._log_A[i, j]
-                                + self._log_B[j, seq[t + 1]]
-                                + log_beta[j, t + 1]
-                                - log_likelihood
-                            )
-
-                # compute gamma
-                log_gamma = log_alpha + log_beta - log_likelihood
-
-                if getattr(self, "_enable_sanity_checks", False):
-                    E, gamma = np.exp(log_E), np.exp(log_gamma)
-                    for t in range(log_E.shape[-1]):
-                        _check_array_sums_to_1(E[:, :, t], f"E at t={t}")
-
-                    for t in range(log_gamma.shape[1]):
-                        _check_array_sums_to_1(gamma[:, t], f"gamma at t={t}")
-
-                    for t in range(n_obs - 1):
-                        for i in range(self.n_hidden_states):
-                            assert np.allclose(gamma[i, t], np.sum(E[i, :, t]))
-
-                # M STEP accumulators
-                pi_acc += np.exp(log_gamma[:, 0])
-                A_acc += np.sum(np.exp(log_E), axis=-1)
-                for t in range(n_obs):
-                    B_acc[:, seq[t]] += np.exp(log_gamma[:, t])
-
-            # M STEP (mostly done in the accumulators already)
-            self.pi = _normalize(pi_acc)
-            self.A = _normalize(A_acc, axis=1)
-            self.B = _normalize(B_acc, axis=1)
-
-            if getattr(self, "_enable_sanity_checks", False):
-                self._check_matrices_conditioning()
+            self.pi, self.A, self.B = _do_EM_step(
+                sequences,
+                self._log_pi,
+                self._log_A,
+                self._log_B,
+                log_alpha,
+                log_beta,
+                log_E,
+                log_gamma,
+            )
+            self._check_matrices_conditioning()
 
     def _check_matrices_conditioning(self):
 
@@ -132,12 +94,15 @@ class HMM:
             _check_array_sums_to_1(self.B[s], f"Row {s} of B")
 
     def _viterbi(self, seq, log_V, back_path):
+        # dummy wrapper for conveniency
         _viterbi(seq, self._log_pi, self._log_A, self._log_B, log_V, back_path)
 
     def _forward(self, seq, log_alpha):
+        # dummy wrapper for conveniency
         return _forward(seq, self._log_pi, self._log_A, self._log_B, log_alpha)
 
     def _backward(self, seq, log_beta):
+        # dummy wrapper for conveniency
         return _backward(seq, self._log_pi, self._log_A, self._log_B, log_beta)
 
     # pi, A and B are respectively init_probas, transitions and emissions
@@ -194,14 +159,16 @@ class HMM:
 def _sample_one(n_obs, pi, A, B, seed):
     np.random.seed(seed)  # local to this numba function, not global numpy
 
-    seq = []
+    observations = []
+    hidden_states = []
     s = _choice(pi)
     for _ in range(n_obs):
+        hidden_states.append(s)
         obs = _choice(B[s])
-        seq.append(obs)
+        observations.append(obs)
         s = _choice(A[s])
 
-    return seq
+    return observations, hidden_states
 
 
 @njit
@@ -261,3 +228,52 @@ def _get_best_path(log_V, back_path, best_path):
     for t in range(back_path.shape[1] - 1, -1, -1):
         best_path[t] = s
         s = back_path[s, t]
+
+
+@njit
+def _do_EM_step(sequences, log_pi, log_A, log_B, log_alpha, log_beta, log_E, log_gamma):
+    # E STEP (over all sequences)
+    # Accumulators for parameters of the hmm. They are summed over for
+    # each sequence, then normalized in the M-step.
+    # These are homogeneous to probabilities, not log-probabilities.
+    pi_acc = np.zeros_like(log_pi)
+    A_acc = np.zeros_like(log_A)
+    B_acc = np.zeros_like(log_B)
+
+    n_obs = sequences.shape[1]
+    n_hidden_states = log_pi.shape[0]
+
+    for seq_idx in range(sequences.shape[0]):
+        seq = sequences[seq_idx]
+        _forward(seq, log_pi, log_A, log_B, log_alpha)
+        _backward(seq, log_pi, log_A, log_B, log_beta)
+        log_likelihood = _logsumexp(log_alpha[:, -1])
+
+        # Compute E
+        for t in range(n_obs - 1):
+            for i in range(n_hidden_states):
+                for j in range(n_hidden_states):
+                    log_E[i, j, t] = (
+                        log_alpha[i, t]
+                        + log_A[i, j]
+                        + log_B[j, seq[t + 1]]
+                        + log_beta[j, t + 1]
+                        - log_likelihood
+                    )
+
+        # compute gamma
+        log_gamma = log_alpha + log_beta - log_likelihood
+
+        # M STEP accumulators
+        pi_acc += np.exp(log_gamma[:, 0])
+        A_acc += np.sum(np.exp(log_E), axis=-1)
+        for t in range(n_obs):
+            B_acc[:, seq[t]] += np.exp(log_gamma[:, t])
+
+    # M STEP (mostly done in the accumulators already)
+    pi = pi_acc / pi_acc.sum()
+    # equiv to X / X.sum(axis=1, keepdims=True) but not supported
+    A = A_acc / A_acc.sum(axis=1).reshape(-1, 1)
+    B = B_acc / B_acc.sum(axis=1).reshape(-1, 1)
+
+    return pi, A, B
