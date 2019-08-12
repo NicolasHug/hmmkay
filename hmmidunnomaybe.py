@@ -2,6 +2,8 @@ from numba import njit
 import numpy as np
 from scipy.special import logsumexp
 
+from _utils import _normalize, _choice, _logsumexp, _check_array_sums_to_1
+
 
 class HMM:
     def __init__(self, init_probas=None, transitions=None, emissions=None, n_iter=10):
@@ -31,67 +33,21 @@ class HMM:
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs))
         total_log_likelihood = 0
         for seq in sequences:
-            self._forward(seq, log_alpha)
-            total_log_likelihood += logsumexp(log_alpha[:, -1])
+            total_log_likelihood += self._forward(seq, log_alpha)
         return total_log_likelihood
 
     def decode(self, sequences):
-        return np.array([self._decode_one(seq) for seq in sequences])
-
-    def _decode_one(self, seq):
-        n_obs = seq.shape[0]
+        n_obs = sequences.shape[1]
         log_V = np.empty(shape=(self.n_hidden_states, n_obs))
         back_path = np.empty(shape=(self.n_hidden_states, n_obs), dtype=np.int32)
 
-        self._viterbi(seq, log_V, back_path)
-
-        best_path = []
-        s = np.argmax(log_V[:, -1])
-        for t in range(n_obs - 1, -1, -1):
-            best_path.append(s)
-            s = back_path[s, t]
-        return list(reversed(best_path))
-
-    def _viterbi(self, seq, log_V, back_path):
-        """Fills V array with log probabilities and back_path with back links"""
-        # V[i, t] = max_{s1...st-1} P(O1, ... Ot, s1, ... st-1, st=i / lambda)
-        n_obs = seq.shape[0]
-        log_V[:, 0] = self._log_pi + self._log_B[:, seq[0]]
-        for t in range(1, n_obs):
-            for s in range(self.n_hidden_states):
-                work_buffer = log_V[:, t - 1] + self._log_A[:, s]
-                best_prev = np.argmax(work_buffer)
-                back_path[s, t] = best_prev
-                log_V[s, t] = work_buffer[best_prev] + self._log_B[s, seq[t]]
-
-    def _forward(self, seq, log_alpha):
-        """Fills alpha array with log probabilities"""
-        # alpha[i, t] = P(O1, ... Ot, st = i / lambda)
-        # reccursion is alpha[i, t] = B[i, Ot] * sumj(alpha[j, t - 1] * A[i, j])
-        # which becomes (when applying log)
-        # log_alpha[i, t] = log(B[i, Ot]) +
-        #                   logsum_jexp(log_alpha[j, t - 1] + _log_A[i, j])
-        # since log(sum(ai . bj)) =
-        #       log(sum(exp(log_ai + log_bi)))
-
-        n_obs = seq.shape[0]
-        log_alpha[:, 0] = self._log_pi + self._log_B[:, seq[0]]
-        for t in range(1, n_obs):
-            for s in range(self.n_hidden_states):
-                log_alpha[s, t] = logsumexp(log_alpha[:, t - 1] + self._log_A[:, s])
-                log_alpha[s, t] += self._log_B[s, seq[t]]
-
-    def _backward(self, seq, log_beta):
-        """Fills beta array with log probabilities"""
-        # beta[i, t] = P(Ot+1, ... OT, / st = i, lambda)
-
-        n_obs = seq.shape[0]
-        log_beta[:, -1] = np.log(1)
-        for t in range(n_obs - 2, -1, -1):
-            for s in range(self.n_hidden_states):
-                log_beta[s, t] = logsumexp(
-                    self._log_A[s, :] + self._log_B[:, seq[t + 1]] + log_beta[:, t + 1]
-                )
+        out = []
+        for seq in sequences:
+            self._viterbi(seq, log_V, back_path)
+            best_path = np.empty(n_obs, dtype=np.int)
+            _get_best_path(log_V, back_path, best_path)
+            out.append(best_path)
+        return np.array(out)
 
     def sample(self, n_seq, n_obs, seed=0):
 
@@ -175,6 +131,15 @@ class HMM:
             _check_array_sums_to_1(self.A[s], f"Row {s} of A")
             _check_array_sums_to_1(self.B[s], f"Row {s} of B")
 
+    def _viterbi(self, seq, log_V, back_path):
+        _viterbi(seq, self._log_pi, self._log_A, self._log_B, log_V, back_path)
+
+    def _forward(self, seq, log_alpha):
+        return _forward(seq, self._log_pi, self._log_A, self._log_B, log_alpha)
+
+    def _backward(self, seq, log_beta):
+        return _backward(seq, self._log_pi, self._log_A, self._log_B, log_beta)
+
     # pi, A and B are respectively init_probas, transitions and emissions
     # matrices. _log_pi, _log_A and _log_B are updated each time pi, A, or B
     # are updated, respectively. Consider these private: updating transitions
@@ -225,34 +190,74 @@ class HMM:
         return self.__log_B
 
 
-def _check_array_sums_to_1(a, name="array"):
-    a_sum = a.sum()
-    if not (1 - 1e-5 < a_sum < 1 + 1e-5):
-        err_msg = f"{name} must sum to 1. Got \n{a}.sum() = {a_sum}"
-        raise ValueError(err_msg)
-
-
-def _normalize(a, axis=None):
-    return a / a.sum(axis, keepdims=True)
-
-
 @njit
 def _sample_one(n_obs, pi, A, B, seed):
     np.random.seed(seed)  # local to this numba function, not global numpy
 
     observations = []
-    s = choice(pi)
+    s = _choice(pi)
     for _ in range(n_obs):
-        obs = choice(B[s])
+        obs = _choice(B[s])
         observations.append(obs)
-        s = choice(A[s])
+        s = _choice(A[s])
 
     return observations
 
 
 @njit
-def choice(p):
-    """return i with probability p[i]"""
-    # inspired from https://github.com/numba/numba/issues/2539
-    # p must sum to 1
-    return np.searchsorted(np.cumsum(p), np.random.random(), side="right")
+def _forward(seq, log_pi, log_A, log_B, log_alpha):
+    """Fill log_alpha array with log probabilities, return log-likelihood"""
+    # alpha[i, t] = P(O1, ... Ot, st = i / lambda)
+    # reccursion is alpha[i, t] = B[i, Ot] * sumj(alpha[j, t - 1] * A[i, j])
+    # which becomes (when applying log)
+    # log_alpha[i, t] = log(B[i, Ot]) +
+    #                   logsum_jexp(log_alpha[j, t - 1] + _log_A[i, j])
+    # since log(sum(ai . bj)) =
+    #       log(sum(exp(log_ai + log_bi)))
+
+    n_obs = seq.shape[0]
+    n_hidden_states = log_pi.shape[0]
+    log_alpha[:, 0] = log_pi + log_B[:, seq[0]]
+    for t in range(1, n_obs):
+        for s in range(n_hidden_states):
+            log_alpha[s, t] = _logsumexp(log_alpha[:, t - 1] + log_A[:, s])
+            log_alpha[s, t] += log_B[s, seq[t]]
+    return _logsumexp(log_alpha[:, -1])
+
+
+@njit
+def _backward(seq, log_pi, log_A, log_B, log_beta):
+    """Fills beta array with log probabilities"""
+    # beta[i, t] = P(Ot+1, ... OT, / st = i, lambda)
+
+    n_obs = seq.shape[0]
+    n_hidden_states = log_pi.shape[0]
+    log_beta[:, -1] = np.log(1)
+    for t in range(n_obs - 2, -1, -1):
+        for s in range(n_hidden_states):
+            log_beta[s, t] = _logsumexp(
+                log_A[s, :] + log_B[:, seq[t + 1]] + log_beta[:, t + 1]
+            )
+
+
+@njit
+def _viterbi(seq, log_pi, log_A, log_B, log_V, back_path):
+    """Fills V array with log probabilities and back_path with back links"""
+    # V[i, t] = max_{s1...st-1} P(O1, ... Ot, s1, ... st-1, st=i / lambda)
+    n_obs = seq.shape[0]
+    n_hidden_states = log_pi.shape[0]
+    log_V[:, 0] = log_pi + log_B[:, seq[0]]
+    for t in range(1, n_obs):
+        for s in range(n_hidden_states):
+            work_buffer = log_V[:, t - 1] + log_A[:, s]
+            best_prev = np.argmax(work_buffer)
+            back_path[s, t] = best_prev
+            log_V[s, t] = work_buffer[best_prev] + log_B[s, seq[t]]
+
+
+@njit
+def _get_best_path(log_V, back_path, best_path):
+    s = np.argmax(log_V[:, -1])
+    for t in range(back_path.shape[1] - 1, -1, -1):
+        best_path[t] = s
+        s = back_path[s, t]
