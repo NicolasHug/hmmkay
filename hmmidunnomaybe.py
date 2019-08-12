@@ -155,7 +155,7 @@ class HMM:
         return self.__log_B
 
 
-@njit
+@njit(cache=True)
 def _sample_one(n_obs, pi, A, B, seed):
     np.random.seed(seed)  # local to this numba function, not global numpy
 
@@ -171,7 +171,7 @@ def _sample_one(n_obs, pi, A, B, seed):
     return observations, hidden_states
 
 
-@njit
+@njit(cache=True)
 def _forward(seq, log_pi, log_A, log_B, log_alpha):
     """Fill log_alpha array with log probabilities, return log-likelihood"""
     # alpha[i, t] = P(O1, ... Ot, st = i / lambda)
@@ -192,7 +192,7 @@ def _forward(seq, log_pi, log_A, log_B, log_alpha):
     return _logsumexp(log_alpha[:, -1])
 
 
-@njit
+@njit(cache=True)
 def _backward(seq, log_pi, log_A, log_B, log_beta):
     """Fills beta array with log probabilities"""
     # beta[i, t] = P(Ot+1, ... OT, / st = i, lambda)
@@ -207,7 +207,7 @@ def _backward(seq, log_pi, log_A, log_B, log_beta):
             )
 
 
-@njit
+@njit(cache=True)
 def _viterbi(seq, log_pi, log_A, log_B, log_V, back_path):
     """Fills V array with log probabilities and back_path with back links"""
     # V[i, t] = max_{s1...st-1} P(O1, ... Ot, s1, ... st-1, st=i / lambda)
@@ -222,7 +222,7 @@ def _viterbi(seq, log_pi, log_A, log_B, log_V, back_path):
             log_V[s, t] = work_buffer[best_prev] + log_B[s, seq[t]]
 
 
-@njit
+@njit(cache=True)
 def _get_best_path(log_V, back_path, best_path):
     s = np.argmax(log_V[:, -1])
     for t in range(back_path.shape[1] - 1, -1, -1):
@@ -230,7 +230,7 @@ def _get_best_path(log_V, back_path, best_path):
         s = back_path[s, t]
 
 
-@njit
+@njit(cache=True)
 def _do_EM_step(sequences, log_pi, log_A, log_B, log_alpha, log_beta, log_E, log_gamma):
     # E STEP (over all sequences)
     # Accumulators for parameters of the hmm. They are summed over for
@@ -272,7 +272,7 @@ def _do_EM_step(sequences, log_pi, log_A, log_B, log_alpha, log_beta, log_E, log
 
     # M STEP (mostly done in the accumulators already)
     pi = pi_acc / pi_acc.sum()
-    # equiv to X / X.sum(axis=1, keepdims=True) but not supported
+    # equivalent to X / X.sum(axis=1, keepdims=True) but not supported
     A = A_acc / A_acc.sum(axis=1).reshape(-1, 1)
     B = B_acc / B_acc.sum(axis=1).reshape(-1, 1)
 
