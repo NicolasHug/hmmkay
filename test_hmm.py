@@ -26,7 +26,7 @@ def to_weird_format(sequences):
 
 
 @pytest.fixture
-def toy_data():
+def toy_params():
     # 2 hidden states, 3 observable states
     pi = np.array([0.6, 0.4])
     A = np.array([[0.7, 0.3], [0.4, 0.6]])
@@ -35,7 +35,7 @@ def toy_data():
     return pi, A, B
 
 
-def test_likelihood_alpha_beta(toy_data):
+def test_likelihood_alpha_beta(toy_params):
     # Make sure computing likelihood with just alpha is the same as computing
     # it with alpha and beta
     # For all t, the likelihood is equal to sum (alpha[:, t] * beta[:, t])
@@ -50,7 +50,7 @@ def test_likelihood_alpha_beta(toy_data):
         # return likelihoods computed at all ts
         return logsumexp(log_alpha + log_beta, axis=0)
 
-    pi, A, B = toy_data
+    pi, A, B = toy_params
 
     hmm = HMM(pi, A, B)
     X = np.array([[0, 1, 2, 0, 1, 2, 0, 1]])
@@ -59,10 +59,10 @@ def test_likelihood_alpha_beta(toy_data):
     np.testing.assert_allclose(expected_likelihood, log_likelihood2(hmm, X[0]))
 
 
-def test_loglikelihood(toy_data):
+def test_loglikelihood(toy_params):
     # Basic test making sure hmmlearn has the same results
 
-    pi, A, B = toy_data
+    pi, A, B = toy_params
 
     hmm = HMM(pi, A, B)
     hmm_learn_model = get_hmm_learn_model(hmm)
@@ -75,10 +75,10 @@ def test_loglikelihood(toy_data):
     assert hmm.log_likelihood(sequences) == pytest.approx(expected)
 
 
-def test_decode(toy_data):
+def test_decode(toy_params):
     # Basic test making sure hmmlearn has the same results
 
-    pi, A, B = toy_data
+    pi, A, B = toy_params
 
     hmm = HMM(pi, A, B)
     hmm_learn_model = get_hmm_learn_model(hmm)
@@ -93,10 +93,10 @@ def test_decode(toy_data):
     assert np.all(hmm.decode(sequences) == expected)
 
 
-def test_EM(toy_data):
+def test_EM(toy_params):
     # Basic test making sure hmmlearn has the same results
 
-    pi, A, B = toy_data
+    pi, A, B = toy_params
     n_iter = 10
 
     hmm = HMM(pi, A, B, n_iter=n_iter)
@@ -111,3 +111,21 @@ def test_EM(toy_data):
     np.testing.assert_allclose(hmm.pi, hmm_learn_model.startprob_)
     np.testing.assert_allclose(hmm.A, hmm_learn_model.transmat_)
     np.testing.assert_allclose(hmm.B, hmm_learn_model.emissionprob_)
+
+
+def test_sample(toy_params):
+    # Make sure shapes are  as expected
+    # Also make sure seed behaves properly
+
+    pi, A, B = toy_params
+    hmm = HMM(pi, A, B)
+    n_obs, n_seq = 10, 20
+
+    sequences = hmm.sample(n_seq=n_seq, n_obs=n_obs, seed=0)
+    assert sequences.shape == (n_seq, n_obs)
+
+    sequences_same = hmm.sample(n_seq=n_seq, n_obs=n_obs, seed=0)
+    assert np.all(sequences == sequences_same)
+
+    sequences_diff = hmm.sample(n_seq=n_seq, n_obs=n_obs, seed=1)
+    assert not np.all(sequences == sequences_diff)

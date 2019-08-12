@@ -1,3 +1,4 @@
+from numba import njit
 import numpy as np
 from scipy.special import logsumexp
 
@@ -5,9 +6,9 @@ from scipy.special import logsumexp
 class HMM:
     def __init__(self, init_probas=None, transitions=None, emissions=None, n_iter=10):
 
-        self.init_probas = np.array(init_probas)
-        self.transitions = np.array(transitions)
-        self.emissions = np.array(emissions)
+        self.init_probas = np.array(init_probas, dtype=np.float64)
+        self.transitions = np.array(transitions, dtype=np.float64)
+        self.emissions = np.array(emissions, dtype=np.float64)
 
         self.n_iter = n_iter
 
@@ -95,16 +96,10 @@ class HMM:
     def sample(self, n_seq, n_obs, seed=0):
 
         rng = np.random.RandomState(seed)
-
-        sequences = []
-        for _ in range(n_seq):
-            observations = []
-            s = rng.choice(self.n_hidden_states, p=self.pi)
-            for _ in range(n_obs):
-                obs = rng.choice(self.n_observable_states, p=self.B[s])
-                observations.append(obs)
-                s = rng.choice(self.n_hidden_states, p=self.A[s])
-            sequences.append(observations)
+        sequences = [
+            _sample_one(n_obs, self.pi, self.A, self.B, seed=rng.randint(10000))
+            for _ in range(n_seq)
+        ]
         return np.array(sequences)
 
     def EM(self, sequences, n_iter=100):
@@ -239,3 +234,25 @@ def _check_array_sums_to_1(a, name="array"):
 
 def _normalize(a, axis=None):
     return a / a.sum(axis, keepdims=True)
+
+
+@njit
+def _sample_one(n_obs, pi, A, B, seed):
+    np.random.seed(seed)  # local to this numba function, not global numpy
+
+    observations = []
+    s = choice(pi)
+    for _ in range(n_obs):
+        obs = choice(B[s])
+        observations.append(obs)
+        s = choice(A[s])
+
+    return observations
+
+
+@njit
+def choice(p):
+    """return i with probability p[i]"""
+    # inspired from https://github.com/numba/numba/issues/2539
+    # p must sum to 1
+    return np.searchsorted(np.cumsum(p), np.random.random(), side="right")
