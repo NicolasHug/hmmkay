@@ -10,11 +10,14 @@ Welcome to hmmkay's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+.. automodule:: hmmkay
+   :members:
 
 
-Indices and tables
-==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. Indices and tables
+.. ==================
+
+.. * :ref:`genindex`
+.. * :ref:`modindex`
+.. * :ref:`search`

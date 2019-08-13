@@ -4,10 +4,25 @@ import numpy as np
 from _utils import _choice, _logsumexp, _check_array_sums_to_1
 
 
-class HMM:
-    """DabigClass"""
+__all__ = ['HMM']
 
-    def __init__(self, init_probas=None, transitions=None, emissions=None, n_iter=10):
+
+class HMM:
+    """Discrete Hidden Markov Model.
+
+    Parameters
+    ----------
+    init_probas : ndarray of shape (n_hidden_states,)
+        The initial probabilities.
+    transitions : ndarray of shape (n_hidden_states, n_hidden_states)
+        The transition probabilities. ``transitions[i, j] = P(st+1 = j / st = i)``.
+    emissions : ndarray of shape (n_hidden_states, n_observable_states)
+        The probabilities of symbol emission.  ``emissions[i, o] = P(Ot = o /
+        st = i)``.
+    n_iter : int, default=10
+        Number of iterations to run for the EM algorithm (in ``fit()``).
+    """
+    def __init__(self, init_probas, transitions, emissions, n_iter=10):
 
         self.init_probas = np.array(init_probas, dtype=np.float64)
         self.transitions = np.array(transitions, dtype=np.float64)
@@ -26,10 +41,11 @@ class HMM:
         self._check_matrices_conditioning()
 
     def likelihood(self, sequences):
-        """Some cool method"""
+        """Compute likelihood of sequences."""
         return np.exp(self.log_likelihood(sequences))
 
     def log_likelihood(self, sequences):
+        """Compute log-likelihood of sequences."""
         sequences = np.array(sequences)
         n_obs = sequences.shape[1]
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs))
@@ -41,6 +57,7 @@ class HMM:
         return total_log_likelihood
 
     def decode(self, sequences, return_log_probas=False):
+        """Decode sequences."""
         sequences = np.array(sequences)
         n_obs = sequences.shape[1]
         log_V = np.empty(shape=(self.n_hidden_states, n_obs))
@@ -61,7 +78,21 @@ class HMM:
         else:
             return hidden_states_sequences
 
-    def sample(self, n_seq, n_obs, seed=0):
+    def sample(self, n_seq=10, n_obs=10, seed=0):
+        """Sample sequences of hidden and observable states.
+
+        Parameters
+        ----------
+        n_seq : int, default=10
+            Number of sequences to sample
+        n_obs : int, default=10
+            Number of observations per sequence
+        seed : lol TODO
+
+        Return
+        ------
+        Something hehe
+        """
 
         rng = np.random.RandomState(seed)
         sequences = np.array(
@@ -74,7 +105,8 @@ class HMM:
         sequences = sequences.swapaxes(0, 1)
         return sequences[0], sequences[1]
 
-    def fit(self, sequences, n_iter=100):
+    def fit(self, sequences):
+        """Fit model to sequences with EM algorithm."""
         sequences = np.array(sequences)
         n_obs = sequences.shape[1]
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs))
