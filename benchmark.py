@@ -1,6 +1,5 @@
 from time import time
 
-import hmmlearn.hmm
 import numpy as np
 import matplotlib.pyplot as plt
 

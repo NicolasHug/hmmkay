@@ -1,9 +1,7 @@
 from numba import njit
-from numba.typed import List
 import numpy as np
-from scipy.special import logsumexp
 
-from _utils import _choice, _logsumexp, _check_array_sums_to_1, _allocate_or_reuse
+from _utils import _choice, _logsumexp, _check_array_sums_to_1
 
 
 class HMM:
