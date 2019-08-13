@@ -1,29 +1,9 @@
 import numpy as np
 import pytest
-import hmmlearn.hmm
 from scipy.special import logsumexp
 
 from hmmidunnomaybe import HMM
-
-
-def get_hmm_learn_model(hmm):
-    """Return equivalent hmm_learn model"""
-    hmm_learn_model = hmmlearn.hmm.MultinomialHMM(
-        n_components=hmm.A.shape[0], init_params="", tol=0, n_iter=hmm.n_iter
-    )
-    hmm_learn_model.startprob_ = hmm.pi
-    hmm_learn_model.transmat_ = hmm.A
-    hmm_learn_model.emissionprob_ = hmm.B
-
-    return hmm_learn_model
-
-
-def to_weird_format(sequences):
-    # Please don't ask
-    return {
-        "X": np.array(sequences).ravel().reshape(-1, 1),
-        "lengths": [sequences.shape[1]] * sequences.shape[0],
-    }
+from _utils import _get_hmm_learn_model, _to_weird_format
 
 
 @pytest.fixture
@@ -66,13 +46,13 @@ def test_loglikelihood_against_hmmlearn(toy_params):
     pi, A, B = toy_params
 
     hmm = HMM(pi, A, B)
-    hmm_learn_model = get_hmm_learn_model(hmm)
+    hmm_learn_model = _get_hmm_learn_model(hmm)
 
     rng = np.random.RandomState(0)
     n_seq, n_obs = 10, 100
     sequences = rng.randint(B.shape[1], size=(n_seq, n_obs))
 
-    expected = hmm_learn_model.score(**to_weird_format(sequences))
+    expected = hmm_learn_model.score(**_to_weird_format(sequences))
     assert hmm.log_likelihood(sequences) == pytest.approx(expected)
 
 
@@ -82,13 +62,13 @@ def test_decode_against_hmmlearn(toy_params):
     pi, A, B = toy_params
 
     hmm = HMM(pi, A, B)
-    hmm_learn_model = get_hmm_learn_model(hmm)
+    hmm_learn_model = _get_hmm_learn_model(hmm)
 
     rng = np.random.RandomState(0)
     n_seq, n_obs = 10, 100
     sequences = rng.randint(B.shape[1], size=(n_seq, n_obs))
 
-    expected = hmm_learn_model.decode(**to_weird_format(sequences))[1].reshape(
+    expected = hmm_learn_model.decode(**_to_weird_format(sequences))[1].reshape(
         sequences.shape
     )
     assert np.all(hmm.decode(sequences) == expected)
@@ -101,15 +81,15 @@ def test_EM_against_hmmlearn(toy_params):
     n_iter = 10
 
     hmm = HMM(pi, A, B, n_iter=n_iter)
-    hmm_learn_model = get_hmm_learn_model(hmm)
+    hmm_learn_model = _get_hmm_learn_model(hmm)
     hmm._enable_sanity_checks = True
 
     rng = np.random.RandomState(0)
     n_seq, n_obs = 10, 100
     sequences = rng.randint(B.shape[1], size=(n_seq, n_obs))
 
-    hmm.EM(sequences)
-    hmm_learn_model.fit(**to_weird_format(sequences))
+    hmm.fit(sequences)
+    hmm_learn_model.fit(**_to_weird_format(sequences))
 
     np.testing.assert_allclose(hmm.pi, hmm_learn_model.startprob_)
     np.testing.assert_allclose(hmm.A, hmm_learn_model.transmat_)

@@ -54,7 +54,6 @@ class HMM:
             hidden_states_sequences.append(best_path)
             if return_log_probas:
                 log_probas.append(log_proba)
-
         hidden_states_sequences = np.array(hidden_states_sequences)
         if return_log_probas:
             return hidden_states_sequences, np.array(log_probas)
@@ -74,7 +73,7 @@ class HMM:
         sequences = sequences.swapaxes(0, 1)
         return sequences[0], sequences[1]
 
-    def EM(self, sequences, n_iter=100):
+    def fit(self, sequences, n_iter=100):
         sequences = np.array(sequences)
         n_obs = sequences.shape[1]
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs))
@@ -198,10 +197,12 @@ def _forward(seq, log_pi, log_A, log_B, log_alpha):
     n_obs = len(seq)
     n_hidden_states = log_pi.shape[0]
     log_alpha[:, 0] = log_pi + log_B[:, seq[0]]
+    buffer = np.empty(shape=n_hidden_states)
     for t in range(1, n_obs):
         for s in range(n_hidden_states):
-            log_alpha[s, t] = _logsumexp(log_alpha[:, t - 1] + log_A[:, s])
-            log_alpha[s, t] += log_B[s, seq[t]]
+            for ss in range(n_hidden_states):
+                buffer[ss] = log_alpha[ss, t - 1] + log_A[ss, s]
+            log_alpha[s, t] = _logsumexp(buffer) + log_B[s, seq[t]]
     return _logsumexp(log_alpha[:, n_obs - 1])
 
 
@@ -213,11 +214,12 @@ def _backward(seq, log_pi, log_A, log_B, log_beta):
     n_obs = seq.shape[0]
     n_hidden_states = log_pi.shape[0]
     log_beta[:, -1] = np.log(1)
+    buffer = np.empty(shape=n_hidden_states)
     for t in range(n_obs - 2, -1, -1):
         for s in range(n_hidden_states):
-            log_beta[s, t] = _logsumexp(
-                log_A[s, :] + log_B[:, seq[t + 1]] + log_beta[:, t + 1]
-            )
+            for ss in range(n_hidden_states):
+                buffer[ss] = log_A[s, ss] + log_B[ss, seq[t + 1]] + log_beta[ss, t + 1]
+            log_beta[s, t] = _logsumexp(buffer)
 
 
 @njit(cache=True)
@@ -227,12 +229,14 @@ def _viterbi(seq, log_pi, log_A, log_B, log_V, back_path):
     n_obs = seq.shape[0]
     n_hidden_states = log_pi.shape[0]
     log_V[:, 0] = log_pi + log_B[:, seq[0]]
+    buffer = np.empty(shape=n_hidden_states)
     for t in range(1, n_obs):
         for s in range(n_hidden_states):
-            work_buffer = log_V[:, t - 1] + log_A[:, s]
-            best_prev = np.argmax(work_buffer)
+            for ss in range(n_hidden_states):
+                buffer[ss] = log_V[ss, t - 1] + log_A[ss, s]
+            best_prev = np.argmax(buffer)
             back_path[s, t] = best_prev
-            log_V[s, t] = work_buffer[best_prev] + log_B[s, seq[t]]
+            log_V[s, t] = buffer[best_prev] + log_B[s, seq[t]]
 
 
 @njit(cache=True)

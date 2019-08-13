@@ -36,3 +36,25 @@ def _logsumexp(a):
 
     s = np.sum(np.exp(a - a_max))
     return np.log(s) + a_max
+
+
+def _get_hmm_learn_model(hmm):
+    """Return equivalent hmm_learn model"""
+    import hmmlearn.hmm  # noqa
+
+    hmm_learn_model = hmmlearn.hmm.MultinomialHMM(
+        n_components=hmm.A.shape[0], init_params="", tol=0, n_iter=hmm.n_iter
+    )
+    hmm_learn_model.startprob_ = hmm.pi
+    hmm_learn_model.transmat_ = hmm.A
+    hmm_learn_model.emissionprob_ = hmm.B
+
+    return hmm_learn_model
+
+
+def _to_weird_format(sequences):
+    # Please don't ask
+    return {
+        "X": np.array(sequences).ravel().reshape(-1, 1),
+        "lengths": [sequences.shape[1]] * sequences.shape[0],
+    }
