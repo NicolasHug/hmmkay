@@ -5,6 +5,8 @@ from _utils import _choice, _logsumexp, _check_array_sums_to_1
 
 
 class HMM:
+    """DabigClass"""
+
     def __init__(self, init_probas=None, transitions=None, emissions=None, n_iter=10):
 
         self.init_probas = np.array(init_probas, dtype=np.float64)
@@ -24,6 +26,7 @@ class HMM:
         self._check_matrices_conditioning()
 
     def likelihood(self, sequences):
+        """Some cool method"""
         return np.exp(self.log_likelihood(sequences))
 
     def log_likelihood(self, sequences):

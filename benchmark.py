@@ -3,7 +3,7 @@ from time import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-from hmmidunnomaybe import HMM
+from hmmkay import HMM
 from _utils import _get_hmm_learn_model, _to_weird_format
 
 

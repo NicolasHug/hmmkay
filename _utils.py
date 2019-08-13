@@ -40,7 +40,10 @@ def _logsumexp(a):
 
 def _get_hmm_learn_model(hmm):
     """Return equivalent hmm_learn model"""
-    import hmmlearn.hmm  # noqa
+    try:
+        import hmmlearn.hmm  # noqa
+    except ImportError as ie:
+        raise RuntimeError("Please install hmmlearn to run tests/benchmarks.") from ie
 
     hmm_learn_model = hmmlearn.hmm.MultinomialHMM(
         n_components=hmm.A.shape[0], init_params="", tol=0, n_iter=hmm.n_iter
