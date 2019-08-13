@@ -39,19 +39,27 @@ class HMM:
             total_log_likelihood += self._forward(seq, log_alpha)
         return total_log_likelihood
 
-    def decode(self, sequences):
+    def decode(self, sequences, return_log_probas=False):
         sequences = np.array(sequences)
         n_obs = sequences.shape[1]
         log_V = np.empty(shape=(self.n_hidden_states, n_obs))
         back_path = np.empty(shape=(self.n_hidden_states, n_obs), dtype=np.int32)
 
-        out = []
+        hidden_states_sequences = []
+        log_probas = []
         for seq in sequences:
             self._viterbi(seq, log_V, back_path)
             best_path = np.empty(n_obs, dtype=np.int)
-            _get_best_path(log_V, back_path, best_path)
-            out.append(best_path)
-        return np.array(out)
+            log_proba = _get_best_path(log_V, back_path, best_path)
+            hidden_states_sequences.append(best_path)
+            if return_log_probas:
+                log_probas.append(log_proba)
+
+        hidden_states_sequences = np.array(hidden_states_sequences)
+        if return_log_probas:
+            return hidden_states_sequences, np.array(log_probas)
+        else:
+            return hidden_states_sequences
 
     def sample(self, n_seq, n_obs, seed=0):
 
@@ -111,8 +119,8 @@ class HMM:
 
     # pi, A and B are respectively init_probas, transitions and emissions
     # matrices. _log_pi, _log_A and _log_B are updated each time pi, A, or B
-    # are updated, respectively. Consider these private: updating transitions
-    # would not update _log_A.
+    # are updated, respectively. Consider these private (and bug-prone :)),
+    # Updating transitions would not update _log_A.
     @property
     def pi(self):
         return self.init_probas
@@ -231,9 +239,11 @@ def _viterbi(seq, log_pi, log_A, log_B, log_V, back_path):
 def _get_best_path(log_V, back_path, best_path):
     """Fill out best_path array"""
     s = np.argmax(log_V[:, -1])
+    out = log_V[s, -1]
     for t in range(back_path.shape[1] - 1, -1, -1):
         best_path[t] = s
         s = back_path[s, t]
+    return out
 
 
 @njit(cache=True)

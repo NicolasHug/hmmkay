@@ -7,6 +7,7 @@ from hmmidunnomaybe import HMM
 
 
 def get_hmm_learn_model(hmm):
+    """Return equivalent hmm_learn model"""
     hmm_learn_model = hmmlearn.hmm.MultinomialHMM(
         n_components=hmm.A.shape[0], init_params="", tol=0, n_iter=hmm.n_iter
     )
@@ -152,10 +153,13 @@ class TestAgainstWikipedia(object):
     def test_decode(self):
         # From http://en.wikipedia.org/wiki/Viterbi_algorithm:
         X = [[0, 1, 2]]
-        hidden_states_seq = self.hmm.decode(X)
-        # TODO : test logprob when/if we return it
-        # assert round(np.exp(logprob), 5) == 0.01344
-        assert np.all(hidden_states_seq == [1, 0, 0])
+        hidden_states_seq, log_proba = self.hmm.decode(X, return_log_probas=True)
+
+        expected_proba = 0.01344
+        assert np.exp(log_proba) == pytest.approx(expected_proba)
+
+        expected_hidden_states_seq = [1, 0, 0]
+        assert np.all(hidden_states_seq == expected_hidden_states_seq)
 
 
 class TestAgainstWikipediaAgain(object):
@@ -205,14 +209,13 @@ class TestAgainstWikipediaAgain(object):
 
     def test_decode(self):
         seq = [[0, 0, 1, 0, 0]]
-        hidden_states_seq = self.hmm.decode(seq)
+        hidden_states_seq, log_proba = self.hmm.decode(seq, return_log_probas=True)
 
         expected_hidden_states_seq = [0, 0, 1, 0, 0]
         assert np.all(hidden_states_seq == expected_hidden_states_seq)
 
-        # TODO: test that when supported
-        # reflogprob = -4.4590
-        # assert round(logprob, 4) == reflogprob
+        expected_log_proba = -4.4590
+        assert log_proba == pytest.approx(expected_log_proba, rel=1e-5)
 
     def test_gamma(self):
         seq = np.array([0, 0, 1, 0, 0])
