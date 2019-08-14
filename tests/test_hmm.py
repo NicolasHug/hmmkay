@@ -222,3 +222,4 @@ class TestAgainstWikipediaAgain(object):
             ]
         )
         assert np.allclose(gamma, expected_gamma.T, atol=1e-4)
+        assert False
