@@ -13,7 +13,7 @@ from hmmkay._utils import (
 
 
 n_hidden_states, n_observable_states = 10, 20
-n_seq, n_obs_min, n_obs_max = 1000, 100, None
+n_seq, n_obs_min, n_obs_max = 1000, 100, 150
 
 sequences = _make_random_sequences_observations(
     n_seq, n_observable_states, n_obs_min, n_obs_max
@@ -25,9 +25,9 @@ def _compile_code(sequences):
     print("Compiling numba code...")
     sequences = sequences[:2]
     hmm.log_likelihood(sequences)
-    # hmm.decode(sequences, return_log_probas=True)
-    # hmm.fit(sequences)
-    # hmm.sample(2, 2)
+    hmm.decode(sequences, return_log_probas=True)
+    hmm.fit(sequences)
+    hmm.sample(2, 2)
     print("done")
 
 

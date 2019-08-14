@@ -95,14 +95,12 @@ def test_decode_against_hmmlearn(toy_params, sequences):
 
     np.testing.assert_array_equal(hidden_states_sequences, expected_hidden_states_seq)
 
-    # For some reason this fails when sequences have different lengths. I
-    # think hmmlearn computes the log likelihood of the concatenated sequence
-    # in this case???
-    # expected_lob_probas = expected_out[0]
-    # assert log_probas.sum() == pytest.approx(expected_lob_probas)
+    expected_lob_probas = expected_out[0]
+    assert log_probas.sum() == pytest.approx(expected_lob_probas)
 
 
-def test_EM_against_hmmlearn(toy_params):
+@pytest.mark.parametrize("sequences", (SEQUENCES_SAME_LENGTHS, SEQUENCES_DIFF_LENGTHS))
+def test_EM_against_hmmlearn(toy_params, sequences):
     # Basic test making sure hmmlearn has the same results
 
     pi, A, B = toy_params
@@ -111,10 +109,6 @@ def test_EM_against_hmmlearn(toy_params):
     hmm = HMM(pi, A, B, n_iter=n_iter)
     hmm_learn_model = _get_hmm_learn_model(hmm)
     hmm._enable_sanity_checks = True
-
-    rng = np.random.RandomState(0)
-    n_seq, n_obs = 10, 100
-    sequences = rng.randint(B.shape[1], size=(n_seq, n_obs))
 
     hmm.fit(sequences)
     hmm_learn_model.fit(**_to_weird_format(sequences))

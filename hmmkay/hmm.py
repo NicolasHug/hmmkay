@@ -7,7 +7,7 @@ from ._utils import (
     _check_array_sums_to_1,
     _check_random_state,
     _argmax,
-    _allocate_or_reuse,
+    _check_sequences,
 )
 
 
@@ -55,33 +55,26 @@ class HMM:
     def log_likelihood(self, sequences):
         """Compute log-likelihood of sequences."""
         total_log_likelihood = 0
-        log_alpha = None
+        sequences, n_obs_max = _check_sequences(sequences)
+        log_alpha = np.empty(shape=(self.n_hidden_states, n_obs_max), dtype=np.float32)
         for seq in sequences:
-            seq = np.array(seq)
-            n_obs = seq.shape[0]
-            log_alpha = _allocate_or_reuse(
-                log_alpha, requested_shape=(self.n_hidden_states, n_obs)
-            )
             total_log_likelihood += self._forward(seq, log_alpha)
         return total_log_likelihood
 
     def decode(self, sequences, return_log_probas=False):
         """Decode sequences."""
+        sequences, n_obs_max = _check_sequences(sequences)
+
         hidden_states_sequences = []
         log_probas = []
-        log_V = None
-        back_path = None
+
+        log_V = np.empty(shape=(self.n_hidden_states, n_obs_max), dtype=np.float32)
+        back_path = np.empty(shape=(self.n_hidden_states, n_obs_max), dtype=np.int32)
+
         for seq in sequences:
-            seq = np.array(seq)
             n_obs = seq.shape[0]
-            log_V = _allocate_or_reuse(
-                log_V, requested_shape=(self.n_hidden_states, n_obs)
-            )
-            back_path = _allocate_or_reuse(
-                back_path, requested_shape=(self.n_hidden_states, n_obs), dtype=np.int
-            )
             self._viterbi(seq, log_V, back_path)
-            best_path = np.empty(n_obs, dtype=np.int)
+            best_path = np.empty(n_obs, dtype=np.int32)
             log_proba = _get_best_path(log_V, back_path, best_path)
             hidden_states_sequences.append(best_path)
             if return_log_probas:
@@ -125,14 +118,15 @@ class HMM:
 
     def fit(self, sequences):
         """Fit model to sequences with EM algorithm."""
-        sequences = np.array(sequences)
-        n_obs = sequences.shape[1]
-        log_alpha = np.empty(shape=(self.n_hidden_states, n_obs))
-        log_beta = np.empty(shape=(self.n_hidden_states, n_obs))
+        sequences, n_obs_max = _check_sequences(sequences)
+        log_alpha = np.empty(shape=(self.n_hidden_states, n_obs_max))
+        log_beta = np.empty(shape=(self.n_hidden_states, n_obs_max))
         # E[i, j, t] = P(st = i, st+1 = j / O, lambda)
-        log_E = np.empty(shape=(self.n_hidden_states, self.n_hidden_states, n_obs - 1))
+        log_E = np.empty(
+            shape=(self.n_hidden_states, self.n_hidden_states, n_obs_max - 1)
+        )
         # g[i, t] = P(st = i / O, lambda)
-        log_gamma = np.empty(shape=(self.n_hidden_states, n_obs))
+        log_gamma = np.empty(shape=(self.n_hidden_states, n_obs_max))
 
         for _ in range(self.n_iter):
 
@@ -264,7 +258,7 @@ def _backward(seq, log_pi, log_A, log_B, log_beta):
 
     n_obs = seq.shape[0]
     n_hidden_states = log_pi.shape[0]
-    log_beta[:, -1] = np.log(1)
+    log_beta[:, n_obs - 1] = np.log(1)
     buffer = np.empty(shape=n_hidden_states)
     for t in range(n_obs - 2, -1, -1):
         for s in range(n_hidden_states):
@@ -295,7 +289,7 @@ def _get_best_path(log_V, back_path, best_path):
     """Fill out best_path array"""
     n_obs = best_path.shape[0]
     s = _argmax(log_V[:, n_obs - 1])
-    out = log_V[s, -1]
+    out = log_V[s, n_obs - 1]
     for t in range(n_obs - 1, -1, -1):
         best_path[t] = s
         s = back_path[s, t]
@@ -313,14 +307,13 @@ def _do_EM_step(sequences, log_pi, log_A, log_B, log_alpha, log_beta, log_E, log
     A_acc = np.zeros_like(log_A)
     B_acc = np.zeros_like(log_B)
 
-    n_obs = sequences.shape[1]
     n_hidden_states = log_pi.shape[0]
 
-    for seq_idx in range(sequences.shape[0]):
+    for seq_idx in range(len(sequences)):  # numba can't iterate over 2D arrays
         seq = sequences[seq_idx]
-        _forward(seq, log_pi, log_A, log_B, log_alpha)
+        n_obs = seq.shape[0]
+        log_likelihood = _forward(seq, log_pi, log_A, log_B, log_alpha)
         _backward(seq, log_pi, log_A, log_B, log_beta)
-        log_likelihood = _logsumexp(log_alpha[:, -1])
 
         # Compute E
         for t in range(n_obs - 1):
@@ -339,7 +332,7 @@ def _do_EM_step(sequences, log_pi, log_A, log_B, log_alpha, log_beta, log_E, log
 
         # M STEP accumulators
         pi_acc += np.exp(log_gamma[:, 0])
-        A_acc += np.sum(np.exp(log_E), axis=-1)
+        A_acc += np.sum(np.exp(log_E[:, :, : n_obs - 1]), axis=-1)
         for t in range(n_obs):
             B_acc[:, seq[t]] += np.exp(log_gamma[:, t])
 

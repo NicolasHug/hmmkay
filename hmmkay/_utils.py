@@ -1,6 +1,7 @@
 import numbers
 
-from numba import njit
+from numba import njit, types
+from numba.typed import List
 import numpy as np
 
 
@@ -9,15 +10,6 @@ def _check_array_sums_to_1(a, name="array"):
     if not (1 - 1e-5 < a_sum < 1 + 1e-5):
         err_msg = f"{name} must sum to 1. Got \n{a}.sum() = {a_sum}"
         raise ValueError(err_msg)
-
-
-def _allocate_or_reuse(array, requested_shape, dtype=np.float):
-    # Return array if requested shape is smaller than frame.shape else
-    # allocate new array
-    if array is None or any(a < b for (a, b) in zip(array.shape, requested_shape)):
-        return np.empty(shape=requested_shape, dtype=dtype)
-    else:  # reuse
-        return array
 
 
 @njit(cache=True)
@@ -131,3 +123,24 @@ def _check_random_state(seed):
     raise ValueError(
         "%r cannot be used to seed a numpy.random.RandomState" " instance" % seed
     )
+
+
+def _check_sequences(sequences):
+    """Convert sequences into appropriate format.
+
+    list of iterables are converted into typed list of arrays.
+    2D arrays are untouched.
+    Also returns the length of the longest sequence.
+    """
+    # TODO encourage users to directly create typed lists of typed lists???
+    if isinstance(sequences, list):
+        longest_seq_length = max(len(seq) for seq in sequences)
+        new_sequences = List.empty_list(types.int32[:])
+        for seq in sequences:
+            new_sequences.append(np.array(seq, dtype=np.int32))
+
+        sequences = new_sequences
+    else:
+        longest_seq_length = sequences.shape[1]
+
+    return sequences, longest_seq_length
