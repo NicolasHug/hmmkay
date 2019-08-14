@@ -5,6 +5,7 @@ from ._utils import (
     _choice,
     _logsumexp,
     _check_array_sums_to_1,
+    _check_random_state,
     _argmax,
     _allocate_or_reuse,
 )
@@ -95,7 +96,7 @@ class HMM:
         else:
             return hidden_states_sequences
 
-    def sample(self, n_seq=10, n_obs=10, seed=0):
+    def sample(self, n_seq=10, n_obs=10, random_state=None):
         """Sample sequences of hidden and observable states.
 
         Parameters
@@ -111,10 +112,10 @@ class HMM:
         Something hehe
         """
 
-        rng = np.random.RandomState(seed)
+        rng = _check_random_state(random_state)
         sequences = np.array(
             [
-                _sample_one(n_obs, self.pi, self.A, self.B, seed=rng.randint(10000))
+                _sample_one(n_obs, self.pi, self.A, self.B, seed=rng.tomaxint())
                 for _ in range(n_seq)
             ]
         )

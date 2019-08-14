@@ -126,23 +126,25 @@ def test_EM_against_hmmlearn(toy_params):
 
 def test_sample(toy_params):
     # Make sure shapes are  as expected
-    # Also make sure seed behaves properly
+    # Also make sure random_state behaves properly
 
     pi, A, B = toy_params
     hmm = HMM(pi, A, B)
     n_obs, n_seq = 10, 20
 
-    obs_sequences, hidden_state_sequences = hmm.sample(n_seq=n_seq, n_obs=n_obs, seed=0)
+    obs_sequences, hidden_state_sequences = hmm.sample(
+        n_seq=n_seq, n_obs=n_obs, random_state=0
+    )
     assert obs_sequences.shape == hidden_state_sequences.shape == (n_seq, n_obs)
 
     obs_sequences_same, hidden_state_sequences_same = hmm.sample(
-        n_seq=n_seq, n_obs=n_obs, seed=0
+        n_seq=n_seq, n_obs=n_obs, random_state=0
     )
     assert np.all(obs_sequences == obs_sequences_same)
     assert np.all(hidden_state_sequences == hidden_state_sequences_same)
 
     obs_sequences_diff, hidden_state_sequences_diff = hmm.sample(
-        n_seq=n_seq, n_obs=n_obs, seed=1
+        n_seq=n_seq, n_obs=n_obs, random_state=1
     )
     assert not np.all(obs_sequences == obs_sequences_diff)
     assert not np.all(hidden_state_sequences == hidden_state_sequences_diff)
