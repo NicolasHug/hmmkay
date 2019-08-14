@@ -13,7 +13,7 @@ from hmmkay._utils import (
 
 
 n_hidden_states, n_observable_states = 10, 20
-n_seq, n_obs_min, n_obs_max = 10000, 100, None
+n_seq, n_obs_min, n_obs_max = 1000, 100, None
 
 sequences = _make_random_sequences_observations(
     n_seq, n_observable_states, n_obs_min, n_obs_max

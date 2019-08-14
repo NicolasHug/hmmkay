@@ -57,7 +57,7 @@ class HMM:
         log_alpha = None
         for seq in sequences:
             seq = np.array(seq)
-            n_obs = len(seq)
+            n_obs = seq.shape[0]
             log_alpha = _allocate_or_reuse(
                 log_alpha, requested_shape=(self.n_hidden_states, n_obs)
             )
@@ -66,21 +66,30 @@ class HMM:
 
     def decode(self, sequences, return_log_probas=False):
         """Decode sequences."""
-        sequences = np.array(sequences)
-        n_obs = sequences.shape[1]
-        log_V = np.empty(shape=(self.n_hidden_states, n_obs))
-        back_path = np.empty(shape=(self.n_hidden_states, n_obs), dtype=np.int32)
-
         hidden_states_sequences = []
         log_probas = []
+        log_V = None
+        back_path = None
         for seq in sequences:
+            seq = np.array(seq)
+            n_obs = seq.shape[0]
+            log_V = _allocate_or_reuse(
+                log_V, requested_shape=(self.n_hidden_states, n_obs)
+            )
+            back_path = _allocate_or_reuse(
+                back_path, requested_shape=(self.n_hidden_states, n_obs), dtype=np.int
+            )
             self._viterbi(seq, log_V, back_path)
             best_path = np.empty(n_obs, dtype=np.int)
             log_proba = _get_best_path(log_V, back_path, best_path)
             hidden_states_sequences.append(best_path)
             if return_log_probas:
                 log_probas.append(log_proba)
-        hidden_states_sequences = np.array(hidden_states_sequences)
+
+        if not isinstance(sequences, list):
+            # All sequences have the same length
+            hidden_states_sequences = np.array(hidden_states_sequences)
+
         if return_log_probas:
             return hidden_states_sequences, np.array(log_probas)
         else:
@@ -283,9 +292,10 @@ def _viterbi(seq, log_pi, log_A, log_B, log_V, back_path):
 @njit(cache=True)
 def _get_best_path(log_V, back_path, best_path):
     """Fill out best_path array"""
-    s = _argmax(log_V[:, -1])
+    n_obs = best_path.shape[0]
+    s = _argmax(log_V[:, n_obs - 1])
     out = log_V[s, -1]
-    for t in range(back_path.shape[1] - 1, -1, -1):
+    for t in range(n_obs - 1, -1, -1):
         best_path[t] = s
         s = back_path[s, t]
     return out

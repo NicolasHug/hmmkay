@@ -60,7 +60,7 @@ def test_likelihood_alpha_beta(toy_params):
     np.testing.assert_allclose(expected_likelihood, log_likelihood2(hmm, X[0]))
 
 
-@pytest.mark.parametrize("sequences", (SEQUENCES_DIFF_LENGTHS, SEQUENCES_SAME_LENGTHS))
+@pytest.mark.parametrize("sequences", (SEQUENCES_SAME_LENGTHS, SEQUENCES_DIFF_LENGTHS))
 def test_loglikelihood_against_hmmlearn(toy_params, sequences):
     # Basic test making sure hmmlearn has the same results
 
@@ -73,7 +73,8 @@ def test_loglikelihood_against_hmmlearn(toy_params, sequences):
     assert hmm.log_likelihood(sequences) == pytest.approx(expected)
 
 
-def test_decode_against_hmmlearn(toy_params):
+@pytest.mark.parametrize("sequences", (SEQUENCES_SAME_LENGTHS, SEQUENCES_DIFF_LENGTHS))
+def test_decode_against_hmmlearn(toy_params, sequences):
     # Basic test making sure hmmlearn has the same results
 
     pi, A, B = toy_params
@@ -81,14 +82,24 @@ def test_decode_against_hmmlearn(toy_params):
     hmm = HMM(pi, A, B)
     hmm_learn_model = _get_hmm_learn_model(hmm)
 
-    rng = np.random.RandomState(0)
-    n_seq, n_obs = 10, 100
-    sequences = rng.randint(B.shape[1], size=(n_seq, n_obs))
+    hidden_states_sequences, log_probas = hmm.decode(sequences, return_log_probas=True)
 
-    expected = hmm_learn_model.decode(**_to_weird_format(sequences))[1].reshape(
-        sequences.shape
-    )
-    assert np.all(hmm.decode(sequences) == expected)
+    expected_out = hmm_learn_model.decode(**_to_weird_format(sequences))
+    expected_hidden_states_seq = expected_out[1]
+
+    # Flatten output of hmmkay for consistency with hmmlearn
+    if isinstance(sequences, list):
+        hidden_states_sequences = np.concatenate(hidden_states_sequences)
+    else:
+        hidden_states_sequences = hidden_states_sequences.ravel()
+
+    np.testing.assert_array_equal(hidden_states_sequences, expected_hidden_states_seq)
+
+    # For some reason this fails when sequences have different lengths. I
+    # think hmmlearn computes the log likelihood of the concatenated sequence
+    # in this case???
+    # expected_lob_probas = expected_out[0]
+    # assert log_probas.sum() == pytest.approx(expected_lob_probas)
 
 
 def test_EM_against_hmmlearn(toy_params):
@@ -151,8 +162,8 @@ def test_against_wikipedia():
     expected_proba = 0.01344
     assert np.exp(log_proba) == pytest.approx(expected_proba)
 
-    expected_hidden_states_seq = [1, 0, 0]
-    assert np.all(hidden_states_seq == expected_hidden_states_seq)
+    expected_hidden_states_seq = [[1, 0, 0]]
+    np.testing.assert_array_equal(hidden_states_seq, expected_hidden_states_seq)
 
 
 class test_against_wikipedia_2(object):
@@ -219,8 +230,8 @@ class test_against_wikipedia_2(object):
     # test decode
     hidden_states_seq, log_proba = hmm.decode([seq], return_log_probas=True)
 
-    expected_hidden_states_seq = [0, 0, 1, 0, 0]
+    expected_hidden_states_seq = [[0, 0, 1, 0, 0]]
     expected_log_proba = -4.4590
 
-    assert np.all(hidden_states_seq == expected_hidden_states_seq)
+    np.testing.assert_array_equal(hidden_states_seq, expected_hidden_states_seq)
     assert log_proba == pytest.approx(expected_log_proba, rel=1e-5)

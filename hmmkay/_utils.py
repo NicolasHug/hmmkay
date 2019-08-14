@@ -42,7 +42,7 @@ def _logsumexp(a):
 
 @njit(cache=True)
 def _argmax(a):
-    # Apparently much faster than np.argmax
+    # Apparently much faster than np.argmax in our context
     curr_max = a[0]
     curr_max_idx = 0
     for i in range(1, len(a)):
