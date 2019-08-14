@@ -1,10 +1,10 @@
 from numba import njit
 import numpy as np
 
-from _utils import _choice, _logsumexp, _check_array_sums_to_1
+from _utils import _choice, _logsumexp, _check_array_sums_to_1, _argmax
 
 
-__all__ = ['HMM']
+__all__ = ["HMM"]
 
 
 class HMM:
@@ -22,6 +22,7 @@ class HMM:
     n_iter : int, default=10
         Number of iterations to run for the EM algorithm (in ``fit()``).
     """
+
     def __init__(self, init_probas, transitions, emissions, n_iter=10):
 
         self.init_probas = np.array(init_probas, dtype=np.float64)
@@ -267,7 +268,7 @@ def _viterbi(seq, log_pi, log_A, log_B, log_V, back_path):
         for s in range(n_hidden_states):
             for ss in range(n_hidden_states):
                 buffer[ss] = log_V[ss, t - 1] + log_A[ss, s]
-            best_prev = np.argmax(buffer)
+            best_prev = _argmax(buffer)
             back_path[s, t] = best_prev
             log_V[s, t] = buffer[best_prev] + log_B[s, seq[t]]
 
@@ -275,7 +276,7 @@ def _viterbi(seq, log_pi, log_A, log_B, log_V, back_path):
 @njit(cache=True)
 def _get_best_path(log_V, back_path, best_path):
     """Fill out best_path array"""
-    s = np.argmax(log_V[:, -1])
+    s = _argmax(log_V[:, -1])
     out = log_V[s, -1]
     for t in range(back_path.shape[1] - 1, -1, -1):
         best_path[t] = s

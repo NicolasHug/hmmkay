@@ -38,6 +38,18 @@ def _logsumexp(a):
     return np.log(s) + a_max
 
 
+@njit(cache=True)
+def _argmax(a):
+    # Apparently much faster than np.argmax
+    curr_max = a[0]
+    curr_max_idx = 0
+    for i in range(1, len(a)):
+        if a[i] > curr_max:
+            curr_max = a[i]
+            curr_max_idx = i
+    return curr_max_idx
+
+
 def _get_hmm_learn_model(hmm):
     """Return equivalent hmm_learn model"""
     try:
