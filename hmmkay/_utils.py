@@ -1,3 +1,5 @@
+import numbers
+
 from numba import njit
 import numpy as np
 
@@ -9,13 +11,13 @@ def _check_array_sums_to_1(a, name="array"):
         raise ValueError(err_msg)
 
 
-def _allocate_or_reuse(frame, requested_shape, dtype=np.float):
-    # Return frame if requested shape is smaller than frame.shape else
+def _allocate_or_reuse(array, requested_shape, dtype=np.float):
+    # Return array if requested shape is smaller than frame.shape else
     # allocate new array
-    if frame is None or any(a < b for (a, b) in zip(frame.shape, requested_shape)):
+    if array is None or any(a < b for (a, b) in zip(array.shape, requested_shape)):
         return np.empty(shape=requested_shape, dtype=dtype)
     else:  # reuse
-        return frame
+        return array
 
 
 @njit(cache=True)
@@ -69,7 +71,63 @@ def _get_hmm_learn_model(hmm):
 
 def _to_weird_format(sequences):
     # Please don't ask
-    return {
-        "X": np.array(sequences).ravel().reshape(-1, 1),
-        "lengths": [sequences.shape[1]] * sequences.shape[0],
-    }
+    if type(sequences) == list:
+        # list of lists, potentially different lenghts
+        X = np.concatenate(sequences).reshape(-1, 1)
+        lenghts = [len(seq) for seq in sequences]
+    else:  # 2d array, sequences are of same length
+        X = np.array(sequences).ravel().reshape(-1, 1)
+        lenghts = [sequences.shape[1]] * sequences.shape[0]
+
+    return {"X": X, "lengths": lenghts}
+
+
+def _make_random_parameters(n_hidden_states, n_observable_states, random_state=None):
+    """Randomly generate probability matrices."""
+
+    rng = _check_random_state(random_state)
+    pi = rng.rand(n_hidden_states)
+    pi /= pi.sum()
+
+    A = rng.rand(n_hidden_states, n_hidden_states)
+    A /= A.sum(axis=1, keepdims=True)
+
+    B = rng.rand(n_hidden_states, n_observable_states)
+    B /= B.sum(axis=1, keepdims=True)
+
+    return pi, A, B
+
+
+def _make_random_sequences_observations(
+    n_seq, n_observable_states, n_obs_min, n_obs_max=None, random_state=None
+):
+    """Randomly generate observation sequences.
+
+    Return 2D array with observations of size n_obs_min if n_obs_max is None.
+    Else a list of lists (with n_obs_min <= length < n_obs_max) is returned.
+    """
+
+    rng = _check_random_state(random_state)
+    if n_obs_max is None:
+        # return 2d numpy array, all observations have same length
+        return rng.randint(n_observable_states, size=(n_seq, n_obs_min))
+    else:
+        return [
+            rng.randint(
+                n_observable_states, size=rng.randint(n_obs_min, n_obs_max)
+            ).tolist()
+            for _ in range(n_seq)
+        ]
+
+
+def _check_random_state(seed):
+    # Stolen from scikit-learn
+    if seed is None or seed is np.random:
+        return np.random.mtrand._rand
+    if isinstance(seed, numbers.Integral):
+        return np.random.RandomState(seed)
+    if isinstance(seed, np.random.RandomState):
+        return seed
+    raise ValueError(
+        "%r cannot be used to seed a numpy.random.RandomState" " instance" % seed
+    )

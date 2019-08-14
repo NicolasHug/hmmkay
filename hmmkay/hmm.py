@@ -1,7 +1,13 @@
 from numba import njit
 import numpy as np
 
-from ._utils import _choice, _logsumexp, _check_array_sums_to_1, _argmax
+from ._utils import (
+    _choice,
+    _logsumexp,
+    _check_array_sums_to_1,
+    _argmax,
+    _allocate_or_reuse,
+)
 
 
 __all__ = ["HMM"]
@@ -47,12 +53,14 @@ class HMM:
 
     def log_likelihood(self, sequences):
         """Compute log-likelihood of sequences."""
-        sequences = np.array(sequences)
-        n_obs = sequences.shape[1]
-        log_alpha = np.empty(shape=(self.n_hidden_states, n_obs))
-
         total_log_likelihood = 0
+        log_alpha = None
         for seq in sequences:
+            seq = np.array(seq)
+            n_obs = len(seq)
+            log_alpha = _allocate_or_reuse(
+                log_alpha, requested_shape=(self.n_hidden_states, n_obs)
+            )
             total_log_likelihood += self._forward(seq, log_alpha)
         return total_log_likelihood
 
