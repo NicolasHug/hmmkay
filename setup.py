@@ -2,12 +2,17 @@ from setuptools import setup, find_packages
 
 packages = find_packages(exclude=["tests", "benchmark", "examples"])
 
+# Deployment instructions (In a clean env?)
+#     pip install twine
+#     python setup.py bdist_wheel
+#     twine upload dist/*
+
 setup(
     name="hmmkay",
-    version="0.0a0",
-    description=("Discrete Hidden Markov Models"),
-    # long_description=open('README.md', 'rb').read().decode('utf-8'),
-    # long_description_content_type='text/markdown',
+    version="0.0a1",
+    description=("Discrete Hidden Markov Models with Numba"),
+    long_description=open("README.md", "rb").read().decode("utf-8"),
+    long_description_content_type="text/markdown",
     url="https://github.com/NicolasHug/hmmkay/",
     author="Nicolas Hug",
     author_email="contact@nicolas-hug.com",

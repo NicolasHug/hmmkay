@@ -3,7 +3,7 @@ import pytest
 from scipy.special import logsumexp
 
 from hmmkay import HMM
-from _utils import _get_hmm_learn_model, _to_weird_format
+from hmmkay._utils import _get_hmm_learn_model, _to_weird_format
 
 
 @pytest.fixture

@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 
-from _utils import _choice, _logsumexp, _check_array_sums_to_1, _argmax
+from ._utils import _choice, _logsumexp, _check_array_sums_to_1, _argmax
 
 
 __all__ = ["HMM"]

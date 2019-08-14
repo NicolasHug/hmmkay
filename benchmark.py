@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from hmmkay import HMM
-from _utils import _get_hmm_learn_model, _to_weird_format
+from hmmkay._utils import _get_hmm_learn_model, _to_weird_format
 
 
 n_hidden_states, n_observable_states = 10, 20
@@ -27,11 +27,13 @@ def make_parameters(n_hidden_states, n_observable_states):
 
 def _compile_code(sequences):
     """Run methods with with small data for JIT compilation"""
+    print("Compiling numba code...")
     sequences = sequences[:2]
     hmm.log_likelihood(sequences)
     hmm.decode(sequences, return_log_probas=True)
     hmm.fit(sequences)
     hmm.sample(2, 2)
+    print("done")
 
 
 init_probas, transitions, emissions = make_parameters(
