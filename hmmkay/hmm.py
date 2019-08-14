@@ -53,7 +53,6 @@ class HMM:
 
         total_log_likelihood = 0
         for seq in sequences:
-            n_obs = len(seq)
             total_log_likelihood += self._forward(seq, log_alpha)
         return total_log_likelihood
 

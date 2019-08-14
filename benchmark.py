@@ -116,7 +116,18 @@ def plot_times():
     )
     ax.set_title(title)
     ax.set_xticks(x_pos + width / 2)
-    ax.set_xticklabels(("log_likelihood", "decode", "sample", "fit"))
+
+    improvements = [
+        f"{hmmlearn_time / hmmkay_time:.1f}x faster"
+        for (hmmkay_time, hmmlearn_time) in zip(times, times_learn)
+    ]
+    xticklabels = [
+        fun_name + "\n" + improvement
+        for (fun_name, improvement) in zip(
+            ("log_likelihood", "decode", "sample", "fit"), improvements
+        )
+    ]
+    ax.set_xticklabels(xticklabels)
 
     ax.legend((rects1[0], rects2[0]), ("hmmkay", "hmmlearn"))
 
