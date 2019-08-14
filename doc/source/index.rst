@@ -13,6 +13,8 @@ Welcome to hmmkay's documentation!
 .. automodule:: hmmkay
    :members:
 
+.. automodule:: hmmkay.utils
+   :members:
 
 
 .. Indices and tables

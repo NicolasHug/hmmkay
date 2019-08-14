@@ -5,6 +5,9 @@ from numba.typed import List
 import numpy as np
 
 
+__all__ = ["make_observation_sequences", "make_proba_matrices"]
+
+
 def _check_array_sums_to_1(a, name="array"):
     a_sum = a.sum()
     if not (1 - 1e-5 < a_sum < 1 + 1e-5):
@@ -63,7 +66,7 @@ def _get_hmm_learn_model(hmm):
 
 def _to_weird_format(sequences):
     # Please don't ask
-    if type(sequences) == list:
+    if isinstance(sequences, list):
         # list of lists, potentially different lenghts
         X = np.concatenate(sequences).reshape(-1, 1)
         lenghts = [len(seq) for seq in sequences]
@@ -74,8 +77,30 @@ def _to_weird_format(sequences):
     return {"X": X, "lengths": lenghts}
 
 
-def _make_random_parameters(n_hidden_states, n_observable_states, random_state=None):
-    """Randomly generate probability matrices."""
+def make_proba_matrices(n_hidden_states=4, n_observable_states=3, random_state=None):
+    """Generate random probability matrices.
+
+    Parameters
+    ----------
+    n_hidden_states : int, default=4
+        Number of hidden states
+    n_observable_states : int, default=3
+        Number of observable states
+    random_state: int or np.random.RandomState instance, default=None
+        Controls the RNG, see `scikt-learn glossary
+        <https://scikit-learn.org/stable/glossary.html#term-random-state>`_
+        for details.
+
+    Returns
+    -------
+    init_probas : array-like of shape (n_hidden_states,)
+        The initial probabilities.
+    transitions : array-like of shape (n_hidden_states, n_hidden_states)
+        The transition probabilities. ``transitions[i, j] = P(st+1 = j / st = i)``.
+    emissions : array-like of shape (n_hidden_states, n_observable_states)
+        The probabilities of symbol emission. ``emissions[i, o] = P(Ot = o /
+        st = i)``.
+    """
 
     rng = _check_random_state(random_state)
     pi = rng.rand(n_hidden_states)
@@ -90,14 +115,35 @@ def _make_random_parameters(n_hidden_states, n_observable_states, random_state=N
     return pi, A, B
 
 
-def _make_random_sequences_observations(
-    n_seq, n_observable_states, n_obs_min, n_obs_max=None, random_state=None
+def make_observation_sequences(
+    n_seq=10, n_observable_states=3, n_obs_min=10, n_obs_max=None, random_state=None
 ):
-    """Randomly generate observation sequences.
+    """Generate random observation sequences.
 
-    Return 2D array with observations of size n_obs_min if n_obs_max is None.
-    Else a list of lists (with n_obs_min <= length < n_obs_max) is returned.
+    Parameters
+    ----------
+    n_seq : int, default=10
+        Number of sequences to generate
+    n_observable_states : int, default=3
+        Number of observable states.
+    n_obs_min : int, default=10
+        Minimum length of each sequence.
+    n_obs_max : int or None, default=None
+        If None (default), all sequences are of length ``n_obs_min`` and a 2d
+        ndarray is returned. If an int, the length of each sequence is
+        chosen randomly with ``n_obs_min <= length < n_obs_max``.
+    random_state: int or np.random.RandomState instance, default=None
+        Controls the RNG, see `scikt-learn glossary
+        <https://scikit-learn.org/stable/glossary.html#term-random-state>`_
+        for details.
+
+    Returns
+    -------
+    sequences : ndarray of shape (n_seq, n_obs_min,) or list of ndarray of \
+        variable length
+        The generated sequences
     """
+    # TODO: generate a typed list instead of a list.
 
     rng = _check_random_state(random_state)
     if n_obs_max is None:

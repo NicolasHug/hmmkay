@@ -1,7 +1,7 @@
 from numba import njit
 import numpy as np
 
-from ._utils import (
+from .utils import (
     _choice,
     _logsumexp,
     _check_array_sums_to_1,
@@ -17,17 +17,44 @@ __all__ = ["HMM"]
 class HMM:
     """Discrete Hidden Markov Model.
 
+    The number of hidden and observable states are determined by the shapes
+    of the probability matrices passed as parameters.
+
     Parameters
     ----------
-    init_probas : ndarray of shape (n_hidden_states,)
+    init_probas : array-like of shape (n_hidden_states,)
         The initial probabilities.
-    transitions : ndarray of shape (n_hidden_states, n_hidden_states)
+    transitions : array-like of shape (n_hidden_states, n_hidden_states)
         The transition probabilities. ``transitions[i, j] = P(st+1 = j / st = i)``.
-    emissions : ndarray of shape (n_hidden_states, n_observable_states)
-        The probabilities of symbol emission.  ``emissions[i, o] = P(Ot = o /
+    emissions : array-like of shape (n_hidden_states, n_observable_states)
+        The probabilities of symbol emission. ``emissions[i, o] = P(Ot = o /
         st = i)``.
     n_iter : int, default=10
         Number of iterations to run for the EM algorithm (in ``fit()``).
+
+    Example
+    -------
+
+    >>> from hmmkay.utils import make_random_parameters
+    >>> from hmmkay import HMM
+    >>> pi, A, B = make_random_parameters(n_hidden_states=2, n_observable_states=4, random_state=0)
+    >>> hmm = HMM(pi, A, B)
+    >>> sequences = [[0, 1, 2, 3], [0, 2]]
+    >>> hmm.log_likelihood(sequences)
+    -8.336
+    >>> hmm.decode(sequences)
+    [array([1, 0, 0, 1], dtype=int32), array([1, 0], dtype=int32)]
+
+    >>> from hmmkay.utils import make_random_sequences_observations
+    >>> sequences = make_random_sequences_observations(n_seq=100, n_observable_states=4, random_state=0)
+    >>> hmm.fit(sequences)
+    >>> hidden_states, observable_states = hmm.sample(n_seq=2, n_obs=5, random_state=0)
+    >>> hidden_states
+    [[3 1 3 1 3]
+     [1 2 1 1 3]]
+    >>> observable_states
+    [[0 0 1 1 1]
+     [1 0 1 1 1]]
     """
 
     def __init__(self, init_probas, transitions, emissions, n_iter=10):
@@ -49,11 +76,31 @@ class HMM:
         self._check_matrices_conditioning()
 
     def likelihood(self, sequences):
-        """Compute likelihood of sequences."""
+        """Compute likelihood of sequences.
+
+        Parameters
+        ----------
+        sequences : array-like of shape (n_seq, n_obs) or list of iterables of \
+            variable length
+
+        Returns
+        -------
+        likelihood : array of shape(n_seq,)
+        """
         return np.exp(self.log_likelihood(sequences))
 
     def log_likelihood(self, sequences):
-        """Compute log-likelihood of sequences."""
+        """Compute log-likelihood of sequences.
+
+        Parameters
+        ----------
+        sequences : array-like of shape (n_seq, n_obs) or list of iterables of \
+            variable length
+
+        Returns
+        -------
+        log_likelihood : array of shape(n_seq,)
+        """
         total_log_likelihood = 0
         sequences, n_obs_max = _check_sequences(sequences)
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs_max), dtype=np.float32)
@@ -62,7 +109,26 @@ class HMM:
         return total_log_likelihood
 
     def decode(self, sequences, return_log_probas=False):
-        """Decode sequences."""
+        """Decode sequences.
+
+        Parameters
+        ----------
+        sequences : array-like of shape (n_seq, n_obs) or list of iterables of \
+            variable length
+            The sequences of observable states.
+        return_log_probas : bool, default=False
+            If True, log-probabilities of the joint sequences of observable and
+            hidden states are returned
+
+        Returns
+        -------
+        best_paths : ndarray of shape(n_seq, n_obs) or list of ndarray of \
+            variable length
+            The most likely sequences of hidden states.
+        log_probabilities : ndarray of shape (n_seq,)
+            log-probabilities of the joint sequences of observable and hidden
+            states. Only present if ``return_log_probas`` is True.
+        """
         sequences, n_obs_max = _check_sequences(sequences)
 
         hidden_states_sequences = []
@@ -80,7 +146,7 @@ class HMM:
             if return_log_probas:
                 log_probas.append(log_proba)
 
-        if not isinstance(sequences, list):
+        if isinstance(sequences, np.ndarray):
             # All sequences have the same length
             hidden_states_sequences = np.array(hidden_states_sequences)
 
@@ -98,11 +164,15 @@ class HMM:
             Number of sequences to sample
         n_obs : int, default=10
             Number of observations per sequence
-        seed : lol TODO
+        random_state: int or np.random.RandomState instance, default=None
+            Controls the RNG, see `scikt-learn glossary
+            <https://scikit-learn.org/stable/glossary.html#term-random-state>`_
+            for details.
 
-        Return
-        ------
-        Something hehe
+        Returns
+        -------
+        hidden_states_sequences : ndarray of shape(n_seq, n_obs)
+        observable_states_sequences : ndarray of shape(n_seq, n_obs)
         """
 
         rng = _check_random_state(random_state)
@@ -112,12 +182,26 @@ class HMM:
                 for _ in range(n_seq)
             ]
         )
-        # Unzip array of (observations, hidden_states) into tuple of arrays
+        # Unzip array of (hidden_states, observation) into tuple of arrays
         sequences = sequences.swapaxes(0, 1)
         return sequences[0], sequences[1]
 
     def fit(self, sequences):
-        """Fit model to sequences with EM algorithm."""
+        """Fit model to sequences.
+
+        The probabilities matrices ``init_probas``, ``transitions`` and
+        ``emissions`` are estimated with the EM algorithm.
+
+        Parameters
+        ----------
+        sequences : array-like of shape (n_seq, n_obs) or list of iterables of \
+            variable length
+            The sequences of observable states.
+
+        Returns
+        -------
+        self : HMM instance
+        """
         sequences, n_obs_max = _check_sequences(sequences)
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs_max))
         log_beta = np.empty(shape=(self.n_hidden_states, n_obs_max))
@@ -141,6 +225,7 @@ class HMM:
                 log_gamma,
             )
             self._check_matrices_conditioning()
+        return self
 
     def _viterbi(self, seq, log_V, back_path):
         # dummy wrapper for conveniency
@@ -225,7 +310,7 @@ def _sample_one(n_obs, pi, A, B, seed):
         observations.append(obs)
         s = _choice(A[s])
 
-    return observations, hidden_states
+    return hidden_states, observations
 
 
 @njit(cache=True)

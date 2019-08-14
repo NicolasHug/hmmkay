@@ -4,20 +4,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from hmmkay import HMM
-from hmmkay._utils import (
+from hmmkay.utils import (
     _get_hmm_learn_model,
     _to_weird_format,
-    _make_random_parameters,
-    _make_random_sequences_observations,
+    make_proba_matrices,
+    make_observation_sequences,
 )
 
 
 n_hidden_states, n_observable_states = 10, 20
 n_seq, n_obs_min, n_obs_max = 1000, 100, 150
 
-sequences = _make_random_sequences_observations(
-    n_seq, n_observable_states, n_obs_min, n_obs_max
-)
+sequences = make_observation_sequences(n_seq, n_observable_states, n_obs_min, n_obs_max)
 
 
 def _compile_code(sequences):
@@ -31,7 +29,7 @@ def _compile_code(sequences):
     print("done")
 
 
-init_probas, transitions, emissions = _make_random_parameters(
+init_probas, transitions, emissions = make_proba_matrices(
     n_hidden_states, n_observable_states
 )
 

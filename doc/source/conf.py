@@ -33,9 +33,8 @@ release = "0.0.1"
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
-    # "sphinx.ext.doctest",
-    # 'sphinx.ext.mathjax',
-    # "sphinx.ext.viewcode",
+    "sphinx.ext.doctest",
+    "sphinx.ext.viewcode",
     "sphinx.ext.napoleon",  # looks better than with numpydoc with RTD theme
 ]
 # this is needed for some reason...

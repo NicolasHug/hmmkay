@@ -3,21 +3,21 @@ import pytest
 from scipy.special import logsumexp
 
 from hmmkay import HMM
-from hmmkay._utils import (
+from hmmkay.utils import (
     _get_hmm_learn_model,
     _to_weird_format,
-    _make_random_parameters,
-    _make_random_sequences_observations,
+    make_proba_matrices,
+    make_observation_sequences,
 )
 
 
 N_HIDDEN_STATES = 2
 N_OBSERVABLE_STATES = 3
 
-SEQUENCES_SAME_LENGTHS = _make_random_sequences_observations(
+SEQUENCES_SAME_LENGTHS = make_observation_sequences(
     n_seq=10, n_observable_states=N_OBSERVABLE_STATES, n_obs_min=100, random_state=0
 )
-SEQUENCES_DIFF_LENGTHS = _make_random_sequences_observations(
+SEQUENCES_DIFF_LENGTHS = make_observation_sequences(
     n_seq=10,
     n_observable_states=N_OBSERVABLE_STATES,
     n_obs_min=70,
@@ -29,7 +29,7 @@ SEQUENCES_DIFF_LENGTHS = _make_random_sequences_observations(
 @pytest.fixture
 def toy_params():
     rng = np.random.RandomState(0)
-    return _make_random_parameters(
+    return make_proba_matrices(
         n_hidden_states=N_HIDDEN_STATES,
         n_observable_states=N_OBSERVABLE_STATES,
         random_state=rng,
