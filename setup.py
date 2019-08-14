@@ -4,7 +4,7 @@ packages = find_packages(exclude=["tests", "benchmark", "examples"])
 
 setup(
     name="hmmkay",
-    version="0.0.1",
+    version="0.0a0",
     description=("Discrete Hidden Markov Models"),
     # long_description=open('README.md', 'rb').read().decode('utf-8'),
     # long_description_content_type='text/markdown',
