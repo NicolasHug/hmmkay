@@ -1,4 +1,5 @@
 from time import time
+from warnings import simplefilter
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,6 +17,7 @@ n_hidden_states, n_observable_states = 10, 20
 n_seq, n_obs_min, n_obs_max = 1000, 100, 150
 
 sequences = make_observation_sequences(n_seq, n_observable_states, n_obs_min, n_obs_max)
+sequences_hmmlearn = _to_weird_format(sequences)
 
 
 def _compile_code(sequences):
@@ -36,6 +38,9 @@ init_probas, transitions, emissions = make_proba_matrices(
 hmm = HMM(init_probas, transitions, emissions, n_iter=1)
 hmmlearn_model = _get_hmm_learn_model(hmm)
 
+# filter out deprecation warnings from sklearn
+simplefilter("ignore", category=DeprecationWarning)
+
 _compile_code(sequences)
 
 hmmkay_times = {}
@@ -47,7 +52,7 @@ hmmkay_times["log_likelihood"] = time() - tic
 print(f"log_likelihood computed in {hmmkay_times['log_likelihood']:3f} sec")
 
 tic = time()
-log_likelihood = hmmlearn_model.score(**_to_weird_format(sequences))
+log_likelihood = hmmlearn_model.score(**sequences_hmmlearn)
 hmmlearn_times["log_likelihood"] = time() - tic
 print(f"log_likelihood computed in {hmmlearn_times['log_likelihood']:3f} sec")
 
@@ -57,7 +62,7 @@ hmmkay_times["decode"] = time() - tic
 print(f"decode computed in {hmmkay_times['decode']:3f} sec")
 
 tic = time()
-hmmlearn_model.decode(**_to_weird_format(sequences), algorithm="viterbi")
+hmmlearn_model.decode(**sequences_hmmlearn, algorithm="viterbi")
 hmmlearn_times["decode"] = time() - tic
 print(f"decode computed in {hmmlearn_times['decode']:3f} sec")
 
@@ -78,7 +83,7 @@ hmmkay_times["fit"] = time() - tic
 print(f"fit computed in {hmmkay_times['fit']:3f} sec")
 
 tic = time()
-hmmlearn_model.fit(**_to_weird_format(sequences))
+hmmlearn_model.fit(**sequences_hmmlearn)
 hmmlearn_times["fit"] = time() - tic
 print(f"fit computed in {hmmlearn_times['fit']:3f} sec")
 
