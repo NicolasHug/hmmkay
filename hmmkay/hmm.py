@@ -7,7 +7,7 @@ from .utils import (
     _check_array_sums_to_1,
     _check_random_state,
     _argmax,
-    _check_sequences,
+    check_sequences,
 )
 
 
@@ -75,34 +75,21 @@ class HMM:
 
         self._check_matrices_conditioning()
 
-    def likelihood(self, sequences):
-        """Compute likelihood of sequences.
-
-        Parameters
-        ----------
-        sequences : array-like of shape (n_seq, n_obs) or list of iterables of \
-            variable length
-
-        Returns
-        -------
-        likelihood : array of shape (n_seq,)
-        """
-        return np.exp(self.log_likelihood(sequences))
-
     def log_likelihood(self, sequences):
         """Compute log-likelihood of sequences.
 
         Parameters
         ----------
-        sequences : array-like of shape (n_seq, n_obs) or list of iterables of \
-            variable length
+        sequences : array-like of shape (n_seq, n_obs) or list (or numba typed list) \
+                of iterables of variable length
+            The sequences of observable states
 
         Returns
         -------
         log_likelihood : array of shape (n_seq,)
         """
         total_log_likelihood = 0
-        sequences, n_obs_max = _check_sequences(sequences)
+        sequences, n_obs_max = check_sequences(sequences, return_longest_length=True)
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs_max), dtype=np.float32)
         for seq in sequences:
             total_log_likelihood += self._forward(seq, log_alpha)
@@ -116,9 +103,9 @@ class HMM:
 
         Parameters
         ----------
-        sequences : array-like of shape (n_seq, n_obs) or list of iterables of \
-            variable length
-            The sequences of observable states.
+        sequences : array-like of shape (n_seq, n_obs) or list (or numba typed list) \
+                of iterables of variable length
+            The sequences of observable states
         return_log_probas : bool, default=False
             If True, log-probabilities of the joint sequences of observable and
             hidden states are returned
@@ -132,7 +119,7 @@ class HMM:
             log-probabilities of the joint sequences of observable and hidden
             states. Only present if ``return_log_probas`` is True.
         """
-        sequences, n_obs_max = _check_sequences(sequences)
+        sequences, n_obs_max = check_sequences(sequences, return_longest_length=True)
 
         hidden_states_sequences = []
         log_probas = []
@@ -177,6 +164,7 @@ class HMM:
         hidden_states_sequences : ndarray of shape (n_seq, n_obs)
         observable_states_sequences : ndarray of shape (n_seq, n_obs)
         """
+        # TODO: allow n_obs_max
 
         rng = _check_random_state(random_state)
         sequences = np.array(
@@ -197,15 +185,15 @@ class HMM:
 
         Parameters
         ----------
-        sequences : array-like of shape (n_seq, n_obs) or list of iterables of \
-            variable length
-            The sequences of observable states.
+        sequences : array-like of shape (n_seq, n_obs) or list (or numba typed list) \
+                of iterables of variable length
+            The sequences of observable states
 
         Returns
         -------
         self : HMM instance
         """
-        sequences, n_obs_max = _check_sequences(sequences)
+        sequences, n_obs_max = check_sequences(sequences, return_longest_length=True)
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs_max))
         log_beta = np.empty(shape=(self.n_hidden_states, n_obs_max))
         # E[i, j, t] = P(st = i, st+1 = j / O, lambda)

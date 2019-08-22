@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 from scipy.special import logsumexp
+from numba.typed import List
 
 from hmmkay import HMM
 from hmmkay.utils import (
@@ -88,7 +89,7 @@ def test_decode_against_hmmlearn(toy_params, sequences):
     expected_hidden_states_seq = expected_out[1]
 
     # Flatten output of hmmkay for consistency with hmmlearn
-    if isinstance(sequences, list):
+    if isinstance(sequences, List):
         hidden_states_sequences = np.concatenate(hidden_states_sequences)
     else:
         hidden_states_sequences = hidden_states_sequences.ravel()

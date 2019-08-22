@@ -5,7 +5,7 @@ from numba.typed import List
 import numpy as np
 
 
-__all__ = ["make_observation_sequences", "make_proba_matrices"]
+__all__ = ["make_observation_sequences", "make_proba_matrices", "check_sequences"]
 
 
 def _check_array_sums_to_1(a, name="array"):
@@ -66,7 +66,7 @@ def _get_hmm_learn_model(hmm):
 
 def _to_weird_format(sequences):
     # Please don't ask
-    if isinstance(sequences, list):
+    if isinstance(sequences, (list, List)):
         # list of lists, potentially different lenghts
         X = np.concatenate(sequences).reshape(-1, 1)
         lenghts = [len(seq) for seq in sequences]
@@ -131,7 +131,8 @@ def make_observation_sequences(
     n_obs_max : int or None, default=None
         If None (default), all sequences are of length ``n_obs_min`` and a 2d
         ndarray is returned. If an int, the length of each sequence is
-        chosen randomly with ``n_obs_min <= length < n_obs_max``.
+        chosen randomly with ``n_obs_min <= length < n_obs_max``. A numba typed
+        list of arrays is returned in this case.
     random_state: int or np.random.RandomState instance, default=None
         Controls the RNG, see `scikt-learn glossary
         <https://scikit-learn.org/stable/glossary.html#term-random-state>`_
@@ -139,23 +140,27 @@ def make_observation_sequences(
 
     Returns
     -------
-    sequences : ndarray of shape (n_seq, n_obs_min,) or list of ndarray of \
-        variable length
-        The generated sequences
+    sequences : ndarray of shape (n_seq, n_obs_min,) or numba typed list of \
+            ndarray of variable length
+        The generated sequences of observable states
     """
     # TODO: generate a typed list instead of a list.
 
     rng = _check_random_state(random_state)
     if n_obs_max is None:
         # return 2d numpy array, all observations have same length
-        return rng.randint(n_observable_states, size=(n_seq, n_obs_min))
+        return rng.randint(n_observable_states, size=(n_seq, n_obs_min), dtype=np.int32)
     else:
-        return [
-            rng.randint(
-                n_observable_states, size=rng.randint(n_obs_min, n_obs_max)
-            ).tolist()
-            for _ in range(n_seq)
-        ]
+        sequences = List.empty_list(types.int32[:])
+        for _ in range(n_seq):
+            sequences.append(
+                rng.randint(
+                    n_observable_states,
+                    size=rng.randint(n_obs_min, n_obs_max),
+                    dtype=np.int32,
+                )
+            )
+        return sequences
 
 
 def _check_random_state(seed):
@@ -171,22 +176,47 @@ def _check_random_state(seed):
     )
 
 
-def _check_sequences(sequences):
+def check_sequences(sequences, return_longest_length=False):
     """Convert sequences into appropriate format.
 
-    list of iterables are converted into typed list of arrays.
-    2D arrays are untouched.
-    Also returns the length of the longest sequence.
+    Parameters
+    ----------
+    sequences : array-like of shape (n_seq, n_obs) or list/typed list of iterables of \
+            variable length.
+        Lists of iterables are converted to typed lists of
+        numpy arrays, which can have different lengths. 2D arrays are
+        untouched (all sequences have the same length).
+
+    return_longest_length : bool, default=False
+        If True, also return the length of the longest sequence.
+
+    Returns
+    -------
+    sequences : ndarray of shape (n_seq, n_obs) or typed list of ndarray of \
+            variable length
+        The sequences converted either to ndarray or numba typed list of ndarrays.
     """
-    # TODO encourage users to directly create typed lists of typed lists???
-    if isinstance(sequences, list):
-        longest_seq_length = max(len(seq) for seq in sequences)
+    if isinstance(sequences, List):  # typed list
+        if return_longest_length:
+            longest_seq_length = max(len(seq) for seq in sequences)
+    elif isinstance(sequences, list):  # regular list, convert to numba typed list
+        if return_longest_length:
+            longest_seq_length = max(len(seq) for seq in sequences)
         new_sequences = List.empty_list(types.int32[:])
         for seq in sequences:
-            new_sequences.append(np.array(seq, dtype=np.int32))
+            new_sequences.append(np.asarray(seq, dtype=np.int32))
 
         sequences = new_sequences
+    elif isinstance(sequences, np.ndarray):
+        if return_longest_length:
+            longest_seq_length = sequences.shape[1]
     else:
-        longest_seq_length = sequences.shape[1]
+        raise ValueError(
+            "Accepted sequences types are 2d numpy arrays, "
+            "lists of iterables, or numba typed lists of iterables."
+        )
 
-    return sequences, longest_seq_length
+    if return_longest_length:
+        return sequences, longest_seq_length
+    else:
+        return sequences
