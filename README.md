@@ -1,6 +1,10 @@
 # Hmmkay [![Build Status](https://travis-ci.org/NicolasHug/hmmkay.svg?branch=master)](https://travis-ci.org/NicolasHug/hmmkay) [![Documentation Status](https://readthedocs.org/projects/hmmkay/badge/?version=latest)](https://hmmkay.readthedocs.io/en/latest/?badge=latest) [![python versions](https://img.shields.io/badge/python-3.6+-blue.svg)](https://github.com/NicolasHug/hmmkay)
 
+🤔👌
+
 Discrete Hidden Markov Models with Numba
+
+
 
 ## Installation
 
