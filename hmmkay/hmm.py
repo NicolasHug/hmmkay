@@ -263,6 +263,7 @@ class HMM:
     def _log_pi(self):
         if getattr(self, "_recompute_log_pi", True):
             self.__log_pi = np.log(self.pi)
+            self._recompute_log_pi = False
         return self.__log_pi
 
     @property
@@ -278,6 +279,7 @@ class HMM:
     def _log_A(self):
         if getattr(self, "_recompute_log_A", True):
             self.__log_A = np.log(self.A)
+            self._recompute_log_A = False
         return self.__log_A
 
     @property
@@ -293,6 +295,7 @@ class HMM:
     def _log_B(self):
         if getattr(self, "_recompute_log_B", True):
             self.__log_B = np.log(self.B)
+            self._recompute_log_B = False
         return self.__log_B
 
 
