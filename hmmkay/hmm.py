@@ -85,7 +85,7 @@ class HMM:
 
         Returns
         -------
-        likelihood : array of shape(n_seq,)
+        likelihood : array of shape (n_seq,)
         """
         return np.exp(self.log_likelihood(sequences))
 
@@ -99,7 +99,7 @@ class HMM:
 
         Returns
         -------
-        log_likelihood : array of shape(n_seq,)
+        log_likelihood : array of shape (n_seq,)
         """
         total_log_likelihood = 0
         sequences, n_obs_max = _check_sequences(sequences)
@@ -109,7 +109,10 @@ class HMM:
         return total_log_likelihood
 
     def decode(self, sequences, return_log_probas=False):
-        """Decode sequences.
+        """Decode sequences with Viterbi algorithm.
+
+        Given a sequence of observable states, return the sequence of hidden
+        states that most-likely generated the input.
 
         Parameters
         ----------
@@ -122,7 +125,7 @@ class HMM:
 
         Returns
         -------
-        best_paths : ndarray of shape(n_seq, n_obs) or list of ndarray of \
+        best_paths : ndarray of shape (n_seq, n_obs) or list of ndarray of \
             variable length
             The most likely sequences of hidden states.
         log_probabilities : ndarray of shape (n_seq,)
@@ -171,8 +174,8 @@ class HMM:
 
         Returns
         -------
-        hidden_states_sequences : ndarray of shape(n_seq, n_obs)
-        observable_states_sequences : ndarray of shape(n_seq, n_obs)
+        hidden_states_sequences : ndarray of shape (n_seq, n_obs)
+        observable_states_sequences : ndarray of shape (n_seq, n_obs)
         """
 
         rng = _check_random_state(random_state)
