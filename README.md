@@ -79,6 +79,8 @@ It should be faster than [hmmlearn](https://hmmlearn.readthedocs.io/en/latest/).
 
 Highly experimental, API subjet to change without deprecation.
 
+I might maintain and develop the package more if people like / use it.
+
 ## Development
 
 The following packages are required for testing:
