@@ -42,11 +42,11 @@ Fitting example::
 Sampling example::
 
     >>> hmm.sample(n_obs=2, n_seq=3)  # return sequences of hidden and observable states
-    ... (array([[0, 1],
-    ...         [1, 1],
-    ...         [0, 0]]), array([[0, 2],
-    ...         [2, 3],
-    ...         [0, 0]]))
+    (array([[0, 1],
+            [1, 1],
+            [0, 0]]), array([[0, 2],
+            [2, 3],
+            [0, 0]]))
 
 API Reference
 =============

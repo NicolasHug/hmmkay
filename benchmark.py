@@ -99,13 +99,13 @@ def plot_times():
     rects2 = ax.bar(x_pos + width, hmmlearn_times.values(), width)
 
     # add some text for labels, title and axes ticks
-    ax.set_ylabel("Time in sec")
+    ax.set_ylabel("Time in sec", fontsize=15)
     title = (
         f"Comparison with hmmlearn.\nn_hidden_states={n_hidden_states},  "
         f"n_observable_states={n_observable_states}  "
         f"n_sequences={n_seq},  n_observations>={n_obs_min}"
     )
-    ax.set_title(title)
+    ax.set_title(title, fontsize=15)
     ax.set_xticks(x_pos + width / 2)
 
     improvements = [
@@ -118,7 +118,7 @@ def plot_times():
         fun_name + "\n" + improvement
         for (fun_name, improvement) in zip(hmmkay_times.keys(), improvements)
     ]
-    ax.set_xticklabels(xticklabels)
+    ax.set_xticklabels(xticklabels, fontsize=15)
 
     ax.legend((rects1[0], rects2[0]), ("hmmkay", "hmmlearn"))
 
