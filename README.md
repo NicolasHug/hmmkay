@@ -7,11 +7,17 @@ Discrete Hidden Markov Models with Numba
 
 Hmmkay is a basic library for discrete Hidden Markov Models that relies on
 numba's just-in-time compilation. It supports decoding, likelihood scoring,
-and fitting (parameter estimation).
+fitting (parameter estimation), and sampling.
 
 Hmmkay accepts sequences of arbitrary length, e.g. 2d numpy arrays or lists
 of iterables. Hmmkay internally converts lists of iterables into Numba typed
 lists of numpy arrays.
+
+## Installation
+
+    pip install hmmkay
+
+Requires Python 3.6 or higher.
 
 ## Examples
 
@@ -57,14 +63,6 @@ hmm.sample(n_obs=2, n_seq=3)  # return sequences of hidden and observable states
         [2, 3],
         [0, 0]]))
 ```
-
-
-
-## Installation
-
-    pip install hmmkay
-
-Requires Python 3.6 or higher.
 
 ## Documentation
 
