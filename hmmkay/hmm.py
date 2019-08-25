@@ -32,29 +32,6 @@ class HMM:
     n_iter : int, default=10
         Number of iterations to run for the EM algorithm (in ``fit()``).
 
-    Example
-    -------
-
-    >>> from hmmkay.utils import make_random_parameters
-    >>> from hmmkay import HMM
-    >>> pi, A, B = make_random_parameters(n_hidden_states=2, n_observable_states=4, random_state=0)
-    >>> hmm = HMM(pi, A, B)
-    >>> sequences = [[0, 1, 2, 3], [0, 2]]
-    >>> hmm.log_likelihood(sequences)
-    -8.336
-    >>> hmm.decode(sequences)
-    [array([1, 0, 0, 1], dtype=int32), array([1, 0], dtype=int32)]
-
-    >>> from hmmkay.utils import make_random_sequences_observations
-    >>> sequences = make_random_sequences_observations(n_seq=100, n_observable_states=4, random_state=0)
-    >>> hmm.fit(sequences)
-    >>> hidden_states, observable_states = hmm.sample(n_seq=2, n_obs=5, random_state=0)
-    >>> hidden_states
-    [[3 1 3 1 3]
-     [1 2 1 1 3]]
-    >>> observable_states
-    [[0 0 1 1 1]
-     [1 0 1 1 1]]
     """
 
     def __init__(self, init_probas, transitions, emissions, n_iter=10):

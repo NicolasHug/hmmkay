@@ -1,3 +1,7 @@
+"""
+The utils module contains helpers for input checking, parameter generation and
+sequence generation.
+"""
 import numbers
 
 from numba import njit, types
@@ -178,6 +182,10 @@ def _check_random_state(seed):
 
 def check_sequences(sequences, return_longest_length=False):
     """Convert sequences into appropriate format.
+
+    This helper is called before any method that uses sequences. It is
+    recommended to convert your sequences once and for all before using the
+    ``HMM`` class, to avoid repeated convertions.
 
     Parameters
     ----------
