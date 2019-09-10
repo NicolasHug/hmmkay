@@ -36,9 +36,9 @@ Scoring and decoding:
 
 >>> sequences = [[0, 1, 2, 3], [0, 2]]
 >>> hmm.log_likelihood(sequences)
-... -8.336
+-8.336
 >>> hmm.decode(sequences)  # most likely sequences of hidden states
-... [array([1, 0, 0, 1], dtype=int32), array([1, 0], dtype=int32)]
+[array([1, 0, 0, 1], dtype=int32), array([1, 0], dtype=int32)]
 ```
 
 Fitting:
