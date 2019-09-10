@@ -24,39 +24,35 @@ Requires Python 3.6 or higher.
 Scoring and decoding:
 
 ```py
-from hmmkay.utils import make_observation_sequences
-sequences = make_observation_sequences(n_seq=100, n_observable_states=4, random_state=0)
-hmm.fit(sequences)
+>>> from hmmkay.utils import make_proba_matrices
+>>> from hmmkay import HMM
 
-from hmmkay.utils import make_proba_matrices
-from hmmkay import HMM
+>>> init_probas, transition_probas, emission_probas = make_proba_matrices(
+...    n_hidden_states=2,
+...    n_observable_states=4,
+...    random_state=0
+... )
+>>> hmm = HMM(init_probas, transition_probas, emission_probas)
 
-init_probas, transition_probas, emission_probas = make_proba_matrices(
-    n_hidden_states=2,
-    n_observable_states=4,
-    random_state=0
-)
-hmm = HMM(init_probas, transition_probas, emission_probas)
-
-sequences = [[0, 1, 2, 3], [0, 2]]
-hmm.log_likelihood(sequences)
--8.336
-hmm.decode(sequences)  # most likely sequences of hidden states
-[array([1, 0, 0, 1], dtype=int32), array([1, 0], dtype=int32)]
+>>> sequences = [[0, 1, 2, 3], [0, 2]]
+>>> hmm.log_likelihood(sequences)
+... -8.336
+>>> hmm.decode(sequences)  # most likely sequences of hidden states
+... [array([1, 0, 0, 1], dtype=int32), array([1, 0], dtype=int32)]
 ```
 
 Fitting:
 
 ```py
-from hmmkay.utils import make_observation_sequences
-sequences = make_observation_sequences(n_seq=100, n_observable_states=4, random_state=0)
-hmm.fit(sequences)
+>>> from hmmkay.utils import make_observation_sequences
+>>> sequences = make_observation_sequences(n_seq=100, n_observable_states=4, random_state=0)
+>>> hmm.fit(sequences)
 ```
 
 Sampling:
 
 ```py
-hmm.sample(n_obs=2, n_seq=3)  # return sequences of hidden and observable states
+>>> hmm.sample(n_obs=2, n_seq=3)  # return sequences of hidden and observable states
 (array([[0, 1],
         [1, 1],
         [0, 0]]), array([[0, 2],
