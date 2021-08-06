@@ -228,7 +228,7 @@ class HMM:
         return self.init_probas
 
     @pi.setter
-    def pi(self, value) -> None:
+    def pi(self, value: np.ndarray) -> None:
         self.init_probas = value
         self._recompute_log_pi = True
 
@@ -244,7 +244,7 @@ class HMM:
         return self.transitions
 
     @A.setter
-    def A(self, value) -> None:
+    def A(self, value: np.ndarray) -> None:
         self.transitions = value
         self._recompute_log_A = True
 
@@ -260,7 +260,7 @@ class HMM:
         return self.emissions
 
     @B.setter
-    def B(self, value) -> None:
+    def B(self, value: np.ndarray) -> None:
         self.emissions = value
         self._recompute_log_B = True
 
