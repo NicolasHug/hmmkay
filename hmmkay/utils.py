@@ -8,6 +8,7 @@ import hmmlearn.hmm as hl
 import numpy as np
 from numba import njit, types
 from numba.typed import List
+from numpy.random import mtrand
 
 from _typing import FormattedSequences, Seed, Sequences
 from hmm import HMM
@@ -183,7 +184,7 @@ def make_observation_sequences(
 def check_random_state(seed: Seed) -> np.random.RandomState:
     # Stolen from scikit-learn
     if seed is None or seed is np.random:
-        return np.random.mtrand._rand
+        return mtrand._rand
     if isinstance(seed, int):
         return np.random.RandomState(seed)
     if isinstance(seed, np.random.RandomState):
