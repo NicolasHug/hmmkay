@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import numpy.typing as npt
 from numba import njit
@@ -158,7 +160,7 @@ class HMM:
         sequences = sequences.swapaxes(0, 1)
         return sequences[0], sequences[1]
 
-    def fit(self, sequences: Sequences) -> "HMM":
+    def fit(self, sequences: Sequences) -> HMM:
         """Fit model to sequences.
 
         The probabilities matrices ``init_probas``, ``transitions`` and
