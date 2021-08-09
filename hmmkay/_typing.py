@@ -1,8 +1,9 @@
+from typing import Union
+
+from numba.typed import List
 from numpy import ndarray
 from numpy.random import RandomState
 from numpy.typing import ArrayLike
-from numba.typed import List
-from typing import Union
 
 FormattedSequences = Union[ndarray, List[ndarray]]
 

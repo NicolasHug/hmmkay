@@ -2,16 +2,15 @@
 The utils module contains helpers for input checking, parameter generation and
 sequence generation.
 """
-import numpy as np
-import numpy.typing as npt
-import hmmlearn.hmm as hl
+from typing import Union, cast
 
-from hmm import HMM
+import hmmlearn.hmm as hl
+import numpy as np
 from numba import njit, types
 from numba.typed import List
-from typing import Union, cast
-from _typing import FormattedSequences, Seed, Sequences
 
+from _typing import FormattedSequences, Seed, Sequences
+from hmm import HMM
 
 __all__ = ["make_observation_sequences", "make_proba_matrices", "check_sequences"]
 

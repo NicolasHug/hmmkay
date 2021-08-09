@@ -1,18 +1,17 @@
 import numpy as np
 import numpy.typing as npt
 from numba import njit
-from numba.typed import List
+
 from _typing import FormattedSequences, Seed, Sequences
 
 from .utils import (
-    _choice,
-    _logsumexp,
+    _argmax,
     _check_array_sums_to_1,
     _check_random_state,
-    _argmax,
+    _choice,
+    _logsumexp,
     check_sequences,
 )
-
 
 __all__ = ["HMM"]
 
