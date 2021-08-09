@@ -73,7 +73,7 @@ def _make_typed_list():  # helper for test below
         (np.arange(20).reshape(4, 5), np.ndarray, 5),
     ],
 )
-def check_sequences(sequences, expected_type, expected_longest_length):
+def test_check_sequences(sequences, expected_type, expected_longest_length):
     sequences, longest_length = check_sequences(sequences, return_longest_length=True)
     assert isinstance(sequences, expected_type)
     assert longest_length == expected_longest_length

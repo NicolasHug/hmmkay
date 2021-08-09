@@ -1,15 +1,19 @@
-from numba import njit
+from __future__ import annotations
+
 import numpy as np
+import numpy.typing as npt
+from numba import njit
+
+from _typing import FormattedSequences, Seed, Sequences
 
 from .utils import (
-    _choice,
-    _logsumexp,
-    _check_array_sums_to_1,
-    _check_random_state,
-    _argmax,
+    argmax,
+    check_array_sums_to_1,
+    check_random_state,
     check_sequences,
+    choice,
+    logsumexp,
 )
-
 
 __all__ = ["HMM"]
 
@@ -34,17 +38,24 @@ class HMM:
 
     """
 
-    def __init__(self, init_probas, transitions, emissions, n_iter=10):
+    def __init__(
+        self,
+        init_probas: npt.ArrayLike,
+        transitions: npt.ArrayLike,
+        emissions: npt.ArrayLike,
+        n_iter: int = 10,
+    ) -> None:
 
-        self.init_probas = np.array(init_probas, dtype=np.float64)
-        self.transitions = np.array(transitions, dtype=np.float64)
-        self.emissions = np.array(emissions, dtype=np.float64)
+        self.init_probas: np.ndarray = np.array(init_probas, dtype=np.float64)
+        self.transitions: np.ndarray = np.array(transitions, dtype=np.float64)
+        self.emissions: np.ndarray = np.array(emissions, dtype=np.float64)
 
-        self.n_iter = n_iter
+        self.n_iter: int = n_iter
 
-        self.n_hidden_states = self.A.shape[0]
-        self.n_observable_states = self.B.shape[1]
+        self.n_hidden_states: int = self.A.shape[0]
+        self.n_observable_states: int = self.B.shape[1]
 
+        # TODO: wtf is this if
         if not (
             self.A.shape[0] == self.A.shape[1] == self.pi.shape[0] == self.B.shape[0]
         ):
@@ -52,7 +63,7 @@ class HMM:
 
         self._check_matrices_conditioning()
 
-    def log_likelihood(self, sequences):
+    def log_likelihood(self, sequences: Sequences) -> float:
         """Compute log-likelihood of sequences.
 
         Parameters
@@ -66,13 +77,13 @@ class HMM:
         log_likelihood : array of shape (n_seq,)
         """
         total_log_likelihood = 0
-        sequences, n_obs_max = check_sequences(sequences, return_longest_length=True)
+        sequences, n_obs_max = check_sequences(sequences)
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs_max), dtype=np.float32)
         for seq in sequences:
             total_log_likelihood += self._forward(seq, log_alpha)
         return total_log_likelihood
 
-    def decode(self, sequences, return_log_probas=False):
+    def decode(self, sequences: Sequences) -> tuple[Sequences, np.ndarray]:
         """Decode sequences with Viterbi algorithm.
 
         Given a sequence of observable states, return the sequence of hidden
@@ -83,9 +94,6 @@ class HMM:
         sequences : array-like of shape (n_seq, n_obs) or list (or numba typed list) \
                 of iterables of variable length
             The sequences of observable states
-        return_log_probas : bool, default=False
-            If True, log-probabilities of the joint sequences of observable and
-            hidden states are returned
 
         Returns
         -------
@@ -94,9 +102,9 @@ class HMM:
             The most likely sequences of hidden states.
         log_probabilities : ndarray of shape (n_seq,)
             log-probabilities of the joint sequences of observable and hidden
-            states. Only present if ``return_log_probas`` is True.
+            states.
         """
-        sequences, n_obs_max = check_sequences(sequences, return_longest_length=True)
+        sequences, n_obs_max = check_sequences(sequences)
 
         hidden_states_sequences = []
         log_probas = []
@@ -110,19 +118,17 @@ class HMM:
             best_path = np.empty(n_obs, dtype=np.int32)
             log_proba = _get_best_path(log_V, back_path, best_path)
             hidden_states_sequences.append(best_path)
-            if return_log_probas:
-                log_probas.append(log_proba)
+            log_probas.append(log_proba)
 
         if isinstance(sequences, np.ndarray):
             # All sequences have the same length
             hidden_states_sequences = np.array(hidden_states_sequences)
 
-        if return_log_probas:
-            return hidden_states_sequences, np.array(log_probas)
-        else:
-            return hidden_states_sequences
+        return hidden_states_sequences, np.array(log_probas)
 
-    def sample(self, n_seq=10, n_obs=10, random_state=None):
+    def sample(
+        self, n_seq: int = 10, n_obs: int = 10, random_state: Seed = None
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Sample sequences of hidden and observable states.
 
         Parameters
@@ -143,7 +149,7 @@ class HMM:
         """
         # TODO: allow n_obs_max
 
-        rng = _check_random_state(random_state)
+        rng = check_random_state(random_state)
         sequences = np.array(
             [
                 _sample_one(n_obs, self.pi, self.A, self.B, seed=rng.tomaxint())
@@ -154,7 +160,7 @@ class HMM:
         sequences = sequences.swapaxes(0, 1)
         return sequences[0], sequences[1]
 
-    def fit(self, sequences):
+    def fit(self, sequences: Sequences) -> HMM:
         """Fit model to sequences.
 
         The probabilities matrices ``init_probas``, ``transitions`` and
@@ -170,7 +176,7 @@ class HMM:
         -------
         self : HMM instance
         """
-        sequences, n_obs_max = check_sequences(sequences, return_longest_length=True)
+        sequences, n_obs_max = check_sequences(sequences)
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs_max))
         log_beta = np.empty(shape=(self.n_hidden_states, n_obs_max))
         # E[i, j, t] = P(st = i, st+1 = j / O, lambda)
@@ -209,58 +215,58 @@ class HMM:
 
     def _check_matrices_conditioning(self):
 
-        _check_array_sums_to_1(self.pi, "init_probas")
+        check_array_sums_to_1(self.pi, "init_probas")
         for s in range(self.n_hidden_states):
-            _check_array_sums_to_1(self.A[s], f"Row {s} of A")
-            _check_array_sums_to_1(self.B[s], f"Row {s} of B")
+            check_array_sums_to_1(self.A[s], f"Row {s} of A")
+            check_array_sums_to_1(self.B[s], f"Row {s} of B")
 
     # pi, A and B are respectively init_probas, transitions and emissions
     # matrices. _log_pi, _log_A and _log_B are updated each time pi, A, or B
     # are updated, respectively. Consider these private (and bug-prone :)),
     # Updating transitions would not update _log_A.
     @property
-    def pi(self):
+    def pi(self) -> np.ndarray:
         return self.init_probas
 
     @pi.setter
-    def pi(self, value):
+    def pi(self, value: np.ndarray) -> None:
         self.init_probas = value
         self._recompute_log_pi = True
 
     @property
-    def _log_pi(self):
+    def _log_pi(self) -> np.ndarray:
         if getattr(self, "_recompute_log_pi", True):
             self.__log_pi = np.log(self.pi)
             self._recompute_log_pi = False
         return self.__log_pi
 
     @property
-    def A(self):
+    def A(self) -> np.ndarray:
         return self.transitions
 
     @A.setter
-    def A(self, value):
+    def A(self, value: np.ndarray) -> None:
         self.transitions = value
         self._recompute_log_A = True
 
     @property
-    def _log_A(self):
+    def _log_A(self) -> np.ndarray:
         if getattr(self, "_recompute_log_A", True):
             self.__log_A = np.log(self.A)
             self._recompute_log_A = False
         return self.__log_A
 
     @property
-    def B(self):
+    def B(self) -> np.ndarray:
         return self.emissions
 
     @B.setter
-    def B(self, value):
+    def B(self, value: np.ndarray) -> None:
         self.emissions = value
         self._recompute_log_B = True
 
     @property
-    def _log_B(self):
+    def _log_B(self) -> np.ndarray:
         if getattr(self, "_recompute_log_B", True):
             self.__log_B = np.log(self.B)
             self._recompute_log_B = False
@@ -268,24 +274,32 @@ class HMM:
 
 
 @njit(cache=True)
-def _sample_one(n_obs, pi, A, B, seed):
+def _sample_one(
+    n_obs: int, pi: np.ndarray, A: np.ndarray, B: np.ndarray, seed: int
+) -> tuple[list[np.intp], list[np.intp]]:
     """Return (observations, hidden_states) sample"""
     np.random.seed(seed)  # local to this numba function, not global numpy
 
     observations = []
     hidden_states = []
-    s = _choice(pi)
+    s = choice(pi)
     for _ in range(n_obs):
         hidden_states.append(s)
-        obs = _choice(B[s])
+        obs = choice(B[s])
         observations.append(obs)
-        s = _choice(A[s])
+        s = choice(A[s])
 
     return hidden_states, observations
 
 
 @njit(cache=True)
-def _forward(seq, log_pi, log_A, log_B, log_alpha):
+def _forward(
+    seq: np.ndarray,
+    log_pi: np.ndarray,
+    log_A: np.ndarray,
+    log_B: np.ndarray,
+    log_alpha: np.ndarray,
+) -> float:
     """Fill log_alpha array with log probabilities, return log-likelihood"""
     # alpha[i, t] = P(O1, ... Ot, st = i / lambda)
     # reccursion is alpha[i, t] = B[i, Ot] * sumj(alpha[j, t - 1] * A[i, j])
@@ -303,12 +317,18 @@ def _forward(seq, log_pi, log_A, log_B, log_alpha):
         for s in range(n_hidden_states):
             for ss in range(n_hidden_states):
                 buffer[ss] = log_alpha[ss, t - 1] + log_A[ss, s]
-            log_alpha[s, t] = _logsumexp(buffer) + log_B[s, seq[t]]
-    return _logsumexp(log_alpha[:, n_obs - 1])
+            log_alpha[s, t] = logsumexp(buffer) + log_B[s, seq[t]]
+    return logsumexp(log_alpha[:, n_obs - 1])
 
 
 @njit(cache=True)
-def _backward(seq, log_pi, log_A, log_B, log_beta):
+def _backward(
+    seq: np.ndarray,
+    log_pi: np.ndarray,
+    log_A: np.ndarray,
+    log_B: np.ndarray,
+    log_beta: np.ndarray,
+) -> None:
     """Fills beta array with log probabilities"""
     # beta[i, t] = P(Ot+1, ... OT, / st = i, lambda)
 
@@ -320,11 +340,18 @@ def _backward(seq, log_pi, log_A, log_B, log_beta):
         for s in range(n_hidden_states):
             for ss in range(n_hidden_states):
                 buffer[ss] = log_A[s, ss] + log_B[ss, seq[t + 1]] + log_beta[ss, t + 1]
-            log_beta[s, t] = _logsumexp(buffer)
+            log_beta[s, t] = logsumexp(buffer)
 
 
 @njit(cache=True)
-def _viterbi(seq, log_pi, log_A, log_B, log_V, back_path):
+def _viterbi(
+    seq: np.ndarray,
+    log_pi: np.ndarray,
+    log_A: np.ndarray,
+    log_B: np.ndarray,
+    log_V: np.ndarray,
+    back_path: np.ndarray,
+) -> None:
     """Fill V array with log probabilities and back_path with back links"""
     # V[i, t] = max_{s1...st-1} P(O1, ... Ot, s1, ... st-1, st=i / lambda)
     n_obs = seq.shape[0]
@@ -335,16 +362,18 @@ def _viterbi(seq, log_pi, log_A, log_B, log_V, back_path):
         for s in range(n_hidden_states):
             for ss in range(n_hidden_states):
                 buffer[ss] = log_V[ss, t - 1] + log_A[ss, s]
-            best_prev = _argmax(buffer)
+            best_prev = argmax(buffer)
             back_path[s, t] = best_prev
             log_V[s, t] = buffer[best_prev] + log_B[s, seq[t]]
 
 
 @njit(cache=True)
-def _get_best_path(log_V, back_path, best_path):
+def _get_best_path(
+    log_V: np.ndarray, back_path: np.ndarray, best_path: np.ndarray
+) -> float:
     """Fill out best_path array"""
     n_obs = best_path.shape[0]
-    s = _argmax(log_V[:, n_obs - 1])
+    s = argmax(log_V[:, n_obs - 1])
     out = log_V[s, n_obs - 1]
     for t in range(n_obs - 1, -1, -1):
         best_path[t] = s
@@ -353,7 +382,16 @@ def _get_best_path(log_V, back_path, best_path):
 
 
 @njit(cache=True)
-def _do_EM_step(sequences, log_pi, log_A, log_B, log_alpha, log_beta, log_E, log_gamma):
+def _do_EM_step(
+    sequences: FormattedSequences,
+    log_pi: np.ndarray,
+    log_A: np.ndarray,
+    log_B: np.ndarray,
+    log_alpha: np.ndarray,
+    log_beta: np.ndarray,
+    log_E: np.ndarray,
+    log_gamma: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return A, B and C after EM step."""
     # E STEP (over all sequences)
     # Accumulators for parameters of the hmm. They are summed over for
