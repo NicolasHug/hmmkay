@@ -15,7 +15,7 @@ from hmm import HMM
 __all__ = ["make_observation_sequences", "make_proba_matrices", "check_sequences"]
 
 
-def _check_array_sums_to_1(a: np.ndarray, name: str = "array") -> None:
+def check_array_sums_to_1(a: np.ndarray, name: str = "array") -> None:
     a_sum = a.sum()
     if not (1 - 1e-5 < a_sum < 1 + 1e-5):
         err_msg = f"{name} must sum to 1. Got \n{a}.sum() = {a_sum}"
@@ -23,7 +23,7 @@ def _check_array_sums_to_1(a: np.ndarray, name: str = "array") -> None:
 
 
 @njit(cache=True)
-def _choice(p: np.ndarray) -> np.intp:
+def choice(p: np.ndarray) -> np.intp:
     """return i with probability p[i]"""
     # inspired from https://github.com/numba/numba/issues/2539
     # p must sum to 1
@@ -31,7 +31,7 @@ def _choice(p: np.ndarray) -> np.intp:
 
 
 @njit(cache=True)
-def _logsumexp(a: np.ndarray) -> float:
+def logsumexp(a: np.ndarray) -> float:
     # stolen from pygbm \o/
 
     a_max = np.amax(a)
@@ -43,7 +43,7 @@ def _logsumexp(a: np.ndarray) -> float:
 
 
 @njit(cache=True)
-def _argmax(a: np.ndarray) -> int:
+def argmax(a: np.ndarray) -> int:
     # Apparently much faster than np.argmax in our context
     curr_max = a[0]
     curr_max_idx = 0
@@ -55,7 +55,7 @@ def _argmax(a: np.ndarray) -> int:
 
 
 # TODO: Review return type when hmmlearn is not imported above.
-def _get_hmm_learn_model(hmm: HMM) -> hl.MultinomialHMM:
+def get_hmm_learn_model(hmm: HMM) -> hl.MultinomialHMM:
     """Return equivalent hmm_learn model"""
     try:
         import hmmlearn.hmm  # noqa
@@ -72,7 +72,7 @@ def _get_hmm_learn_model(hmm: HMM) -> hl.MultinomialHMM:
     return hmm_learn_model
 
 
-def _to_weird_format(
+def to_weird_format(
     sequences: Sequences,
 ) -> dict[str, Union[np.ndarray, list[int]]]:
     # Please don't ask
@@ -115,7 +115,7 @@ def make_proba_matrices(
         st = i)``.
     """
 
-    rng = _check_random_state(random_state)
+    rng = check_random_state(random_state)
     pi = rng.rand(n_hidden_states)
     pi /= pi.sum()
 
@@ -163,7 +163,7 @@ def make_observation_sequences(
     """
     # TODO: generate a typed list instead of a list.
 
-    rng = _check_random_state(random_state)
+    rng = check_random_state(random_state)
     if n_obs_max is None:
         # return 2d numpy array, all observations have same length
         return rng.randint(n_observable_states, size=(n_seq, n_obs_min), dtype=np.int32)
@@ -180,7 +180,7 @@ def make_observation_sequences(
         return sequences
 
 
-def _check_random_state(seed: Seed) -> np.random.RandomState:
+def check_random_state(seed: Seed) -> np.random.RandomState:
     # Stolen from scikit-learn
     if seed is None or seed is np.random:
         return np.random.mtrand._rand

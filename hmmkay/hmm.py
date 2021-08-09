@@ -7,11 +7,11 @@ from numba import njit
 from _typing import FormattedSequences, Seed, Sequences
 
 from .utils import (
-    _argmax,
-    _check_array_sums_to_1,
-    _check_random_state,
-    _choice,
-    _logsumexp,
+    argmax,
+    check_array_sums_to_1,
+    check_random_state,
+    choice,
+    logsumexp,
     check_sequences,
 )
 
@@ -149,7 +149,7 @@ class HMM:
         """
         # TODO: allow n_obs_max
 
-        rng = _check_random_state(random_state)
+        rng = check_random_state(random_state)
         sequences = np.array(
             [
                 _sample_one(n_obs, self.pi, self.A, self.B, seed=rng.tomaxint())
@@ -215,10 +215,10 @@ class HMM:
 
     def _check_matrices_conditioning(self):
 
-        _check_array_sums_to_1(self.pi, "init_probas")
+        check_array_sums_to_1(self.pi, "init_probas")
         for s in range(self.n_hidden_states):
-            _check_array_sums_to_1(self.A[s], f"Row {s} of A")
-            _check_array_sums_to_1(self.B[s], f"Row {s} of B")
+            check_array_sums_to_1(self.A[s], f"Row {s} of A")
+            check_array_sums_to_1(self.B[s], f"Row {s} of B")
 
     # pi, A and B are respectively init_probas, transitions and emissions
     # matrices. _log_pi, _log_A and _log_B are updated each time pi, A, or B
@@ -282,12 +282,12 @@ def _sample_one(
 
     observations = []
     hidden_states = []
-    s = _choice(pi)
+    s = choice(pi)
     for _ in range(n_obs):
         hidden_states.append(s)
-        obs = _choice(B[s])
+        obs = choice(B[s])
         observations.append(obs)
-        s = _choice(A[s])
+        s = choice(A[s])
 
     return hidden_states, observations
 
@@ -317,8 +317,8 @@ def _forward(
         for s in range(n_hidden_states):
             for ss in range(n_hidden_states):
                 buffer[ss] = log_alpha[ss, t - 1] + log_A[ss, s]
-            log_alpha[s, t] = _logsumexp(buffer) + log_B[s, seq[t]]
-    return _logsumexp(log_alpha[:, n_obs - 1])
+            log_alpha[s, t] = logsumexp(buffer) + log_B[s, seq[t]]
+    return logsumexp(log_alpha[:, n_obs - 1])
 
 
 @njit(cache=True)
@@ -340,7 +340,7 @@ def _backward(
         for s in range(n_hidden_states):
             for ss in range(n_hidden_states):
                 buffer[ss] = log_A[s, ss] + log_B[ss, seq[t + 1]] + log_beta[ss, t + 1]
-            log_beta[s, t] = _logsumexp(buffer)
+            log_beta[s, t] = logsumexp(buffer)
 
 
 @njit(cache=True)
@@ -362,7 +362,7 @@ def _viterbi(
         for s in range(n_hidden_states):
             for ss in range(n_hidden_states):
                 buffer[ss] = log_V[ss, t - 1] + log_A[ss, s]
-            best_prev = _argmax(buffer)
+            best_prev = argmax(buffer)
             back_path[s, t] = best_prev
             log_V[s, t] = buffer[best_prev] + log_B[s, seq[t]]
 
@@ -373,7 +373,7 @@ def _get_best_path(
 ) -> float:
     """Fill out best_path array"""
     n_obs = best_path.shape[0]
-    s = _argmax(log_V[:, n_obs - 1])
+    s = argmax(log_V[:, n_obs - 1])
     out = log_V[s, n_obs - 1]
     for t in range(n_obs - 1, -1, -1):
         best_path[t] = s
