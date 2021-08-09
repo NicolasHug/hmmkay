@@ -10,9 +10,9 @@ from .utils import (
     argmax,
     check_array_sums_to_1,
     check_random_state,
+    check_sequences,
     choice,
     logsumexp,
-    check_sequences,
 )
 
 __all__ = ["HMM"]
