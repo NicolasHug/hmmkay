@@ -399,10 +399,10 @@ def _get_next_state(
     """
 
     if current_state < 0:
-        current_state = choice(pi)
+        current_state = int(choice(pi))
     else:
-        current_state = choice(A[current_state])
-    emission = choice(B[current_state])
+        current_state = int(choice(A[current_state]))
+    emission = int(choice(B[current_state]))
     return current_state, emission
 
 
