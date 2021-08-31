@@ -1,5 +1,4 @@
 from __future__ import annotations
-from os import stat
 
 import numpy as np
 import numpy.typing as npt
@@ -208,7 +207,7 @@ class HMM:
             total_log_likelihood += self._forward(seq, log_alpha)
         return total_log_likelihood
 
-    def decode(self, sequences: Sequences) -> tuple[Sequences, np.ndarray]:
+    def decode(self, sequences: Sequences) -> tuple[FormattedSequences, np.ndarray]:
         """Decode sequences using the Viterbi algorithm.
 
         Given a sequence of observable states, return the sequence of hidden
@@ -216,7 +215,7 @@ class HMM:
 
         Parameters
         ----------
-        sequences: hmmkay._typing.Sequences
+        sequences: hmmkay._typing.FormattedSequences
             The sequences of observable states.
 
         Returns
@@ -237,7 +236,7 @@ class HMM:
         back_path = np.empty(shape=(self.n_hidden_states, n_obs_max), dtype=np.int32)
 
         for seq in sequences:
-            n_obs = seq.shape[0]
+            n_obs = seq.shape[0]  # type: ignore
             self._viterbi(seq, log_V, back_path)
             best_path = np.empty(n_obs, dtype=np.int32)
             log_proba = _get_best_path(log_V, back_path, best_path)
