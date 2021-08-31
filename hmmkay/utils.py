@@ -217,7 +217,7 @@ def make_observation_sequences(
     n_obs_min: int = 10,
     n_obs_max: int = None,
     random_state: int = None,
-) -> Union[np.ndarray, List[np.ndarray]]:
+) -> FormattedSequences:
     """Generate random observation sequences.
 
     Parameters
