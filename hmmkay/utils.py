@@ -2,7 +2,9 @@
 The utils module contains helpers for input checking, parameter generation and
 sequence generation.
 """
-from typing import Union, cast
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Union, cast
 
 import hmmlearn.hmm as hl
 import numpy as np
@@ -10,8 +12,10 @@ from numba import njit, types
 from numba.typed import List
 from numpy.random import mtrand
 
-from _typing import FormattedSequences, Seed, Sequences
-from hmm import HMM
+from ._typing import FormattedSequences, Seed, Sequences
+
+if TYPE_CHECKING:
+    from hmm import HMM
 
 __all__ = ["make_observation_sequences", "make_proba_matrices", "check_sequences"]
 
@@ -159,7 +163,6 @@ def to_weird_format(
     -------
     dict[str, numpy.ndarray | list[int]]
     """
-
     if isinstance(sequences, (list, List)):
         # list of lists, potentially different lengths
         X = np.array(np.concatenate(sequences)).reshape(-1, 1)
@@ -217,7 +220,7 @@ def make_observation_sequences(
     n_obs_min: int = 10,
     n_obs_max: int = None,
     random_state: int = None,
-) -> Union[np.ndarray, List[np.ndarray]]:
+) -> FormattedSequences:
     """Generate random observation sequences.
 
     Parameters

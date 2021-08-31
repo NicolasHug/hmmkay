@@ -1,12 +1,12 @@
 from __future__ import annotations
-from os import stat
+
+from typing import cast
 
 import numpy as np
 import numpy.typing as npt
 from numba import njit
 
-from _typing import FormattedSequences, Seed, Sequences
-
+from ._typing import FormattedSequences, Seed, Sequences
 from .utils import (
     argmax,
     check_array_sums_to_1,
@@ -34,8 +34,10 @@ class HMM:
     emissions: numpy.typing.ArrayLike
         The probabilities of symbol emission:
         ``emissions[i, o] = P(O_t = o | s_t = i)``.
+    current_state: int, optional.
+        Starting state of the HMM. Negative values mean unspecified. Default: -1.
     n_iter: int, optional
-        Number of iterations to run for the EM algorithm (in ``fit()``).
+        Number of iterations to run for the EM algorithm (in ``fit()``). Default: 10.
     """
 
     def __init__(
@@ -45,7 +47,6 @@ class HMM:
         emissions: npt.ArrayLike,
         n_iter: int = 10,
     ) -> None:
-
         self.init_probas: np.ndarray = np.array(init_probas, dtype=np.float64)
         self.transitions: np.ndarray = np.array(transitions, dtype=np.float64)
         self.emissions: np.ndarray = np.array(emissions, dtype=np.float64)
@@ -208,7 +209,7 @@ class HMM:
             total_log_likelihood += self._forward(seq, log_alpha)
         return total_log_likelihood
 
-    def decode(self, sequences: Sequences) -> tuple[Sequences, np.ndarray]:
+    def decode(self, sequences: Sequences) -> tuple[FormattedSequences, np.ndarray]:
         """Decode sequences using the Viterbi algorithm.
 
         Given a sequence of observable states, return the sequence of hidden
@@ -216,7 +217,7 @@ class HMM:
 
         Parameters
         ----------
-        sequences: hmmkay._typing.Sequences
+        sequences: hmmkay._typing.FormattedSequences
             The sequences of observable states.
 
         Returns
@@ -237,6 +238,7 @@ class HMM:
         back_path = np.empty(shape=(self.n_hidden_states, n_obs_max), dtype=np.int32)
 
         for seq in sequences:
+            seq = cast(np.ndarray, seq)
             n_obs = seq.shape[0]
             self._viterbi(seq, log_V, back_path)
             best_path = np.empty(n_obs, dtype=np.int32)
@@ -248,7 +250,7 @@ class HMM:
             # All sequences have the same length
             hidden_states_sequences = np.array(hidden_states_sequences)
 
-        return hidden_states_sequences, np.array(log_probas)
+        return cast(FormattedSequences, hidden_states_sequences), np.array(log_probas)
 
     def sample(
         self, n_seq: int = 10, n_obs: int = 10, random_state: Seed = None
@@ -285,6 +287,23 @@ class HMM:
         # Unzip array of (hidden_states, observation) into tuple of arrays
         sequences = sequences.swapaxes(0, 1)
         return sequences[0], sequences[1]
+
+    def next_state(self, current_state: int = -1) -> tuple[int, int]:
+        """It runs a step of the HMM.
+
+        Parameters
+        ----------
+        current_state: int, optional
+            The current state of the HMM. Default: -1.
+
+        Returns
+        -------
+        int
+            The new current state of the HMM.
+        int
+            The observed state.
+        """
+        return _get_next_state(current_state, self.pi, self.A, self.B)
 
     def fit(self, sequences: Sequences) -> HMM:
         """Fit model to sequences.
@@ -356,10 +375,43 @@ class HMM:
 
 
 @njit(cache=True)
+def _get_next_state(
+    current_state: int, pi: np.ndarray, A: np.ndarray, B: np.ndarray
+) -> tuple[int, int]:
+    """Returns the next and the observed state in the HMM.
+
+    Parameters
+    ----------
+    current_state: int
+        The current state of the HMM.
+    pi: numpy.ndarray
+        The initial probabilities array.
+    A: numpy.ndarray
+        The hidden states transition matrix.
+    B: numpy.ndarray
+        The emission matrix.
+
+    Returns
+    -------
+    int
+        The new state of the HMM.
+    int
+        The observed state.
+    """
+
+    if current_state < 0:
+        current_state = int(choice(pi))
+    else:
+        current_state = int(choice(A[current_state]))
+    emission = int(choice(B[current_state]))
+    return current_state, emission
+
+
+@njit(cache=True)
 def _sample_one(
     n_obs: int, pi: np.ndarray, A: np.ndarray, B: np.ndarray, seed: int
 ) -> tuple[list[np.intp], list[np.intp]]:
-    """Return both the sampled hidden states and observable sequences.
+    """Returns both the sampled hidden states and observable sequences.
 
     Parameters
     ----------
