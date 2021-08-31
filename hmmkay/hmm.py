@@ -303,11 +303,6 @@ class HMM:
         """
         return _get_next_state(current_state, self.pi, self.A, self.B)
 
-    def reset_state(self) -> None:
-        """It resets the current state to unspecified."""
-
-        self.current_state = -1
-
     def fit(self, sequences: Sequences) -> HMM:
         """Fit model to sequences.
 
