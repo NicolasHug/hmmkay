@@ -11,7 +11,7 @@ from numba import njit, types
 from numba.typed import List
 from numpy.random import mtrand
 
-from _typing import FormattedSequences, Seed, Sequences
+from ._typing import FormattedSequences, Seed, Sequences
 
 if TYPE_CHECKING:
     from hmm import HMM
