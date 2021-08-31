@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import cast
 
 import numpy as np
@@ -6,7 +7,6 @@ import numpy.typing as npt
 from numba import njit
 
 from ._typing import FormattedSequences, Seed, Sequences
-
 from .utils import (
     argmax,
     check_array_sums_to_1,

@@ -3,7 +3,8 @@ The utils module contains helpers for input checking, parameter generation and
 sequence generation.
 """
 from __future__ import annotations
-from typing import cast, TYPE_CHECKING, Union
+
+from typing import TYPE_CHECKING, Union, cast
 
 import hmmlearn.hmm as hl
 import numpy as np
