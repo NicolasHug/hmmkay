@@ -159,7 +159,6 @@ def to_weird_format(
     -------
     dict[str, numpy.ndarray | list[int]]
     """
-
     if isinstance(sequences, (list, List)):
         # list of lists, potentially different lengths
         X = np.array(np.concatenate(sequences)).reshape(-1, 1)
