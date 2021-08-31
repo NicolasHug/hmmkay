@@ -24,7 +24,7 @@ def check_array_sums_to_1(a: np.ndarray, name: str = "array") -> None:
     a: numpy.ndarray
         Probability array.
     name: str
-        Name of the array.
+        Name of the array. Default: "array".
 
     Raises
     ------
@@ -180,13 +180,13 @@ def make_proba_matrices(
     Parameters
     ----------
     n_hidden_states: int, optional
-        Number of hidden states
+        Number of hidden states. Default: 4.
     n_observable_states: int, optional
-        Number of observable states
+        Number of observable states. Default 3.
     random_state: int | numpy.random.RandomState, optional
         Controls the RNG, see `scikit-learn glossary
         <https://scikit-learn.org/stable/glossary.html#term-random-state>`_
-        for details.
+        for details. Default: None.
 
     Returns
     -------
@@ -223,20 +223,20 @@ def make_observation_sequences(
     Parameters
     ----------
     n_seq: int, optional
-        Number of sequences to generate
+        Number of sequences to generate. Default: 10.
     n_observable_states: int, optional
-        Number of observable states.
+        Number of observable states. Default: 3.
     n_obs_min: int, optional
-        Minimum length of each sequence.
+        Minimum length of each sequence. Default: 10.
     n_obs_max: int | None, optional
         If None (default), all sequences are of length ``n_obs_min`` and a 2d
         ndarray is returned. If an int, the length of each sequence is
         chosen randomly with ``n_obs_min <= length < n_obs_max``. A numba typed
-        list of arrays is returned in this case.
+        list of arrays is returned in this case. Default: None.
     random_state: int | np.random.RandomState, optional
         Controls the RNG, see `scikit-learn glossary
         <https://scikit-learn.org/stable/glossary.html#term-random-state>`_
-        for details.
+        for details. Default: None.
 
     Returns
     -------

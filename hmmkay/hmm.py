@@ -20,7 +20,6 @@ __all__ = ["HMM"]
 
 
 class HMM:
-    # TODO: Fix class docstring.
     """Discrete Hidden Markov Model.
 
     The number of hidden and observable states are determined by the shapes
@@ -82,7 +81,13 @@ class HMM:
 
     @pi.setter
     def pi(self, value: np.ndarray) -> None:
-        """It updates the value of the initial probabilities array."""
+        """It updates the value of the initial probabilities array.
+
+        Parameters
+        ----------
+        value: numpy.ndarray
+            The new initial probabilities.
+        """
 
         self.init_probas = value
         self._recompute_log_pi = True
@@ -116,7 +121,13 @@ class HMM:
 
     @A.setter
     def A(self, value: np.ndarray) -> None:
-        """It updates the hidden states transition matrix."""
+        """It updates the hidden states transition matrix.
+
+        Parameters
+        ----------
+        value: numpy.ndarray
+            The new transition matrix.
+        """
 
         self.transitions = value
         self._recompute_log_A = True
@@ -150,7 +161,13 @@ class HMM:
 
     @B.setter
     def B(self, value: np.ndarray) -> None:
-        """It updates the emission matrix."""
+        """It updates the emission matrix.
+
+        Parameters
+        ----------
+        value: numpy.ndarray
+            The new emission matrix.
+        """
 
         self.emissions = value
         self._recompute_log_B = True
@@ -164,6 +181,7 @@ class HMM:
         numpy.ndarray
             The logarithm of the emission matrix.
         """
+
         if getattr(self, "_recompute_log_B", True):
             self.__log_B = np.log(self.B)
             self._recompute_log_B = False
@@ -180,7 +198,7 @@ class HMM:
         Returns
         -------
         float
-            The total log-likelihood
+            The total log-likelihood.
         """
 
         total_log_likelihood = 0
@@ -199,7 +217,7 @@ class HMM:
         Parameters
         ----------
         sequences: hmmkay._typing.Sequences
-            The sequences of observable states
+            The sequences of observable states.
 
         Returns
         -------
@@ -240,13 +258,13 @@ class HMM:
         Parameters
         ----------
         n_seq : int, optional
-            Number of sequences to sample
+            Number of sequences to sample. Default: 10.
         n_obs : int, optional
-            Number of observations per sequence
+            Number of observations per sequence. Default: 10.
         random_state: int or np.random.RandomState instance, optional
             Controls the RNG, see `scikt-learn glossary
             <https://scikit-learn.org/stable/glossary.html#term-random-state>`_
-            for details.
+            for details. Default: None.
 
         Returns
         -------
@@ -277,7 +295,7 @@ class HMM:
         Parameters
         ----------
         sequences: hmmkay._typing.Sequences
-            The sequences of observable states
+            The sequences of observable states.
 
         Returns
         -------
