@@ -316,12 +316,9 @@ class HMM:
         int
             The observed state.
         """
-
-        if self.current_state < 0:
-            self.current_state = choice(self.pi)
-        else:
-            self.current_state = choice(self.A[self.current_state])
-        emission = choice(self.B[self.current_state])
+        self.current_state, emission = _get_next_state(
+            self.current_state, self.pi, self.A, self.B
+        )
         return self.current_state, emission
 
     def reset_state(self) -> None:
@@ -399,10 +396,43 @@ class HMM:
 
 
 @njit(cache=True)
+def _get_next_state(
+    current_state: int, pi: np.ndarray, A: np.ndarray, B: np.ndarray
+) -> tuple[int, int]:
+    """Returns the next and the observed state in the HMM.
+
+    Parameters
+    ----------
+    current_state: int
+        The current state of the HMM.
+    pi: numpy.ndarray
+        The initial probabilities array.
+    A: numpy.ndarray
+        The hidden states transition matrix.
+    B: numpy.ndarray
+        The emission matrix.
+
+    Returns
+    -------
+    int
+        The new state of the HMM.
+    int
+        The observed state.
+    """
+
+    if current_state < 0:
+        current_state = choice(pi)
+    else:
+        current_state = choice(A[current_state])
+    emission = choice(B[current_state])
+    return current_state, emission
+
+
+@njit(cache=True)
 def _sample_one(
     n_obs: int, pi: np.ndarray, A: np.ndarray, B: np.ndarray, seed: int
 ) -> tuple[list[np.intp], list[np.intp]]:
-    """Return both the sampled hidden states and observable sequences.
+    """Returns both the sampled hidden states and observable sequences.
 
     Parameters
     ----------
