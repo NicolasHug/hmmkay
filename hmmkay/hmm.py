@@ -44,10 +44,8 @@ class HMM:
         init_probas: npt.ArrayLike,
         transitions: npt.ArrayLike,
         emissions: npt.ArrayLike,
-        current_state: int = -1,
         n_iter: int = 10,
     ) -> None:
-        self._current_state: int = current_state
         self.init_probas: np.ndarray = np.array(init_probas, dtype=np.float64)
         self.transitions: np.ndarray = np.array(transitions, dtype=np.float64)
         self.emissions: np.ndarray = np.array(emissions, dtype=np.float64)
@@ -64,24 +62,6 @@ class HMM:
             raise ValueError("inconsistent number of hidden states.")
 
         self._check_matrices_conditioning()
-
-    @property
-    def current_state(self) -> int:
-        """It returns the current state of the HMM.
-
-        Returns
-        -------
-        int
-            The current state of the HMM.
-        """
-
-        return self._current_state
-
-    @current_state.setter
-    def current_state(self, new_state: int) -> None:
-        """It updates the current state of the HMM."""
-
-        self._current_state = new_state
 
     # pi, A and B are respectively init_probas, transitions and emissions
     # matrices. _log_pi, _log_A and _log_B are updated each time pi, A, or B
@@ -306,8 +286,13 @@ class HMM:
         sequences = sequences.swapaxes(0, 1)
         return sequences[0], sequences[1]
 
-    def next_state(self) -> tuple[int, int]:
+    def next_state(self, current_state: int = -1) -> tuple[int, int]:
         """It runs a step of the HMM.
+
+        Parameters
+        ----------
+        current_state: int, optional
+            The current state of the HMM. Default: -1.
 
         Returns
         -------
@@ -316,10 +301,7 @@ class HMM:
         int
             The observed state.
         """
-        self.current_state, emission = _get_next_state(
-            self.current_state, self.pi, self.A, self.B
-        )
-        return self.current_state, emission
+        return _get_next_state(current_state, self.pi, self.A, self.B)
 
     def reset_state(self) -> None:
         """It resets the current state to unspecified."""
