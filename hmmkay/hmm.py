@@ -6,7 +6,7 @@ from numba import njit
 
 from _typing import FormattedSequences, Seed, Sequences
 
-from .utils import (
+from utils import (
     argmax,
     check_array_sums_to_1,
     check_random_state,
@@ -33,8 +33,10 @@ class HMM:
     emissions: numpy.typing.ArrayLike
         The probabilities of symbol emission:
         ``emissions[i, o] = P(O_t = o | s_t = i)``.
+    current_state: int, optional.
+        Starting state of the HMM. Negative values mean unspecified. Default: -1.
     n_iter: int, optional
-        Number of iterations to run for the EM algorithm (in ``fit()``).
+        Number of iterations to run for the EM algorithm (in ``fit()``). Default: 10.
     """
 
     def __init__(
@@ -42,9 +44,10 @@ class HMM:
         init_probas: npt.ArrayLike,
         transitions: npt.ArrayLike,
         emissions: npt.ArrayLike,
+        current_state: int = -1,
         n_iter: int = 10,
     ) -> None:
-
+        self._current_state: int = current_state
         self.init_probas: np.ndarray = np.array(init_probas, dtype=np.float64)
         self.transitions: np.ndarray = np.array(transitions, dtype=np.float64)
         self.emissions: np.ndarray = np.array(emissions, dtype=np.float64)
@@ -61,6 +64,24 @@ class HMM:
             raise ValueError("inconsistent number of hidden states.")
 
         self._check_matrices_conditioning()
+
+    @property
+    def current_state(self) -> int:
+        """It returns the current state of the HMM.
+
+        Returns
+        -------
+        int
+            The current state of the HMM.
+        """
+
+        return self._current_state
+
+    @current_state.setter
+    def current_state(self, new_state: int) -> None:
+        """It updates the current state of the HMM."""
+
+        self._current_state = new_state
 
     # pi, A and B are respectively init_probas, transitions and emissions
     # matrices. _log_pi, _log_A and _log_B are updated each time pi, A, or B
@@ -284,6 +305,29 @@ class HMM:
         # Unzip array of (hidden_states, observation) into tuple of arrays
         sequences = sequences.swapaxes(0, 1)
         return sequences[0], sequences[1]
+
+    def next_state(self) -> tuple[int, int]:
+        """It runs a step of the HMM.
+
+        Returns
+        -------
+        int
+            The new current state of the HMM.
+        int
+            The observed state.
+        """
+
+        if self.current_state < 0:
+            self.current_state = choice(self.pi)
+        else:
+            self.current_state = choice(self.A[self.current_state])
+        emission = choice(self.B[self.current_state])
+        return self.current_state, emission
+
+    def reset_state(self) -> None:
+        """It resets the current state to unspecified."""
+
+        self.current_state = -1
 
     def fit(self, sequences: Sequences) -> HMM:
         """Fit model to sequences.
