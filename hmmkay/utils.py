@@ -17,6 +17,21 @@ __all__ = ["make_observation_sequences", "make_proba_matrices", "check_sequences
 
 
 def check_array_sums_to_1(a: np.ndarray, name: str = "array") -> None:
+    """It checks if a probability array sums to 1.
+
+    Parameters
+    ----------
+    a: numpy.ndarray
+        Probability array.
+    name: str
+        Name of the array. Default: "array".
+
+    Raises
+    ------
+    ValueError
+        When the array does not sum to 1.
+    """
+
     a_sum = a.sum()
     if not (1 - 1e-5 < a_sum < 1 + 1e-5):
         err_msg = f"{name} must sum to 1. Got \n{a}.sum() = {a_sum}"
@@ -25,15 +40,41 @@ def check_array_sums_to_1(a: np.ndarray, name: str = "array") -> None:
 
 @njit(cache=True)
 def choice(p: np.ndarray) -> np.intp:
-    """return i with probability p[i]"""
-    # inspired from https://github.com/numba/numba/issues/2539
+    """It returns i with probability p[i]. Inspired in https://bit.ly/3gsxZPx
+
+    Parameters
+    ----------
+    p: numpy.ndarray
+        Probabilities array.
+
+    Returns
+    -------
+    numpy.intp
+        The chosen number.
+    """
+
     # p must sum to 1
+
     return np.searchsorted(np.cumsum(p), np.random.random(), side="right")
 
 
 @njit(cache=True)
 def logsumexp(a: np.ndarray) -> float:
-    # stolen from pygbm \o/
+    """It calculates the logsumexp of an array a. From pygbm
+
+    logsumexp(a) = ln( sum_{i=1}^n exp(a_i - a*) ),
+    where a* = max_{i=1,...,n} a_i
+
+    Parameters
+    ----------
+    a: numpy.ndarray
+        The array to apply the function to.
+
+    Returns
+    -------
+    float
+        The logsumexp of the input array.
+    """
 
     a_max = np.amax(a)
     if not np.isfinite(a_max):
@@ -45,7 +86,21 @@ def logsumexp(a: np.ndarray) -> float:
 
 @njit(cache=True)
 def argmax(a: np.ndarray) -> int:
-    # Apparently much faster than np.argmax in our context
+    """It returns the argmax of an array.
+
+    Apparently much faster than numpy.argmax in our context.
+
+    Parameters
+    ----------
+    a: numpy.ndarray
+        The array to apply the function to.
+
+    Returns
+    -------
+    int
+        The index of the maximum number on the array.
+    """
+
     curr_max = a[0]
     curr_max_idx = 0
     for i in range(1, len(a)):
@@ -57,9 +112,26 @@ def argmax(a: np.ndarray) -> int:
 
 # TODO: Review return type when hmmlearn is not imported above.
 def get_hmm_learn_model(hmm: HMM) -> hl.MultinomialHMM:
-    """Return equivalent hmm_learn model"""
+    """It returns the equivalent model in hmmlearn.
+
+    Parameters
+    ----------
+    hmm: hmmkay.HMM
+        Input hidden markov model.
+
+    Returns
+    -------
+    hmmlearn.hmm.MultinomialHMM
+        The equivalent model.
+
+    Raises
+    ------
+    RuntimeError
+        When the hmmlearn library is not installed.
+    """
+
     try:
-        import hmmlearn.hmm  # noqa
+        import hmmlearn.hmm
     except ImportError as ie:
         raise RuntimeError("Please install hmmlearn to run tests/benchmarks.") from ie
 
@@ -76,7 +148,18 @@ def get_hmm_learn_model(hmm: HMM) -> hl.MultinomialHMM:
 def to_weird_format(
     sequences: Sequences,
 ) -> dict[str, Union[np.ndarray, list[int]]]:
-    # Please don't ask
+    """It formats the set of sequences for hmmlearn (required for tests).
+
+    Parameters
+    ----------
+    sequences: hmmkay._typing.sequences
+        The set of sequences.
+
+    Returns
+    -------
+    dict[str, numpy.ndarray | list[int]]
+    """
+
     if isinstance(sequences, (list, List)):
         # list of lists, potentially different lengths
         X = np.array(np.concatenate(sequences)).reshape(-1, 1)
@@ -96,24 +179,23 @@ def make_proba_matrices(
 
     Parameters
     ----------
-    n_hidden_states : int, default=4
-        Number of hidden states
-    n_observable_states : int, default=3
-        Number of observable states
-    random_state: int or np.random.RandomState instance, default=None
-        Controls the RNG, see `scikt-learn glossary
+    n_hidden_states: int, optional
+        Number of hidden states. Default: 4.
+    n_observable_states: int, optional
+        Number of observable states. Default 3.
+    random_state: int | numpy.random.RandomState, optional
+        Controls the RNG, see `scikit-learn glossary
         <https://scikit-learn.org/stable/glossary.html#term-random-state>`_
-        for details.
+        for details. Default: None.
 
     Returns
     -------
-    init_probas : array-like of shape (n_hidden_states,)
+    init_probas: numpy.ndarray
         The initial probabilities.
-    transitions : array-like of shape (n_hidden_states, n_hidden_states)
-        The transition probabilities. ``transitions[i, j] = P(st+1 = j / st = i)``.
-    emissions : array-like of shape (n_hidden_states, n_observable_states)
-        The probabilities of symbol emission. ``emissions[i, o] = P(Ot = o /
-        st = i)``.
+    transitions: numpy.ndarray
+        The transition probabilities ``transitions[i, j] = P(s_{t+1} = j | s_t = i)``.
+    emissions: numpy.ndarray
+        The emission probabilities ``emissions[i, o] = P(O_t = o | s_t = i)``.
     """
 
     rng = check_random_state(random_state)
@@ -135,33 +217,33 @@ def make_observation_sequences(
     n_obs_min: int = 10,
     n_obs_max: int = None,
     random_state: int = None,
-) -> np.ndarray:
+) -> Union[np.ndarray, List[np.ndarray]]:
     """Generate random observation sequences.
 
     Parameters
     ----------
-    n_seq : int, default=10
-        Number of sequences to generate
-    n_observable_states : int, default=3
-        Number of observable states.
-    n_obs_min : int, default=10
-        Minimum length of each sequence.
-    n_obs_max : int or None, default=None
+    n_seq: int, optional
+        Number of sequences to generate. Default: 10.
+    n_observable_states: int, optional
+        Number of observable states. Default: 3.
+    n_obs_min: int, optional
+        Minimum length of each sequence. Default: 10.
+    n_obs_max: int | None, optional
         If None (default), all sequences are of length ``n_obs_min`` and a 2d
         ndarray is returned. If an int, the length of each sequence is
         chosen randomly with ``n_obs_min <= length < n_obs_max``. A numba typed
-        list of arrays is returned in this case.
-    random_state: int or np.random.RandomState instance, default=None
-        Controls the RNG, see `scikt-learn glossary
+        list of arrays is returned in this case. Default: None.
+    random_state: int | np.random.RandomState, optional
+        Controls the RNG, see `scikit-learn glossary
         <https://scikit-learn.org/stable/glossary.html#term-random-state>`_
-        for details.
+        for details. Default: None.
 
     Returns
     -------
-    sequences : ndarray of shape (n_seq, n_obs_min,) or numba typed list of \
-            ndarray of variable length
+    sequences : numpy.ndarray | numba.typed.List
         The generated sequences of observable states
     """
+
     # TODO: generate a typed list instead of a list.
 
     rng = check_random_state(random_state)
@@ -182,7 +264,19 @@ def make_observation_sequences(
 
 
 def check_random_state(seed: Seed) -> np.random.RandomState:
-    # Stolen from scikit-learn
+    """It returns a RandomState sequence according to the input. From scikit-learn.
+
+    Parameters
+    ----------
+    seed: hmmkay._typing.Seed
+        The input to return the RandomState instance from.
+
+    Returns
+    -------
+    numpy.random.RandomState
+        The random state instance.
+    """
+
     if seed is None or seed is np.random:
         return mtrand._rand
     if isinstance(seed, int):
@@ -203,18 +297,17 @@ def check_sequences(sequences: Sequences) -> tuple[FormattedSequences, int]:
 
     Parameters
     ----------
-    sequences : array-like of shape (n_seq, n_obs) or list/typed list of iterables of \
-            variable length.
-        Lists of iterables are converted to typed lists of
-        numpy arrays, which can have different lengths. 2D arrays are
-        untouched (all sequences have the same length).
+    sequences: hmmkay._typing.Sequences
+        Sequences to be formatted.
 
     Returns
     -------
-    sequences : ndarray of shape (n_seq, n_obs) or typed list of ndarray of \
-            variable length
-        The sequences converted either to ndarray or numba typed list of ndarrays.
+    hmmkay._typing.FormattedSequences
+        The formatted sequences to either ndarray or numba typed list of ndarrays.
+    int
+        The length of the longest sequence.
     """
+
     if isinstance(sequences, List):  # typed list
         longest_seq_length = max(len(seq) for seq in sequences)
     elif isinstance(sequences, list):  # regular list, convert to numba typed list

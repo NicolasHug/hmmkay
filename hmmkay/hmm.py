@@ -1,4 +1,5 @@
 from __future__ import annotations
+from os import stat
 
 import numpy as np
 import numpy.typing as npt
@@ -26,16 +27,15 @@ class HMM:
 
     Parameters
     ----------
-    init_probas : array-like of shape (n_hidden_states,)
+    init_probas: numpy.typing.ArrayLike
         The initial probabilities.
-    transitions : array-like of shape (n_hidden_states, n_hidden_states)
-        The transition probabilities. ``transitions[i, j] = P(st+1 = j / st = i)``.
-    emissions : array-like of shape (n_hidden_states, n_observable_states)
-        The probabilities of symbol emission. ``emissions[i, o] = P(Ot = o /
-        st = i)``.
-    n_iter : int, default=10
+    transitions: numpy.typing.ArrayLike
+        The transition probabilities ``transitions[i, j] = P(s_{t+1} = j | s_t = i)``.
+    emissions: numpy.typing.ArrayLike
+        The probabilities of symbol emission:
+        ``emissions[i, o] = P(O_t = o | s_t = i)``.
+    n_iter: int, optional
         Number of iterations to run for the EM algorithm (in ``fit()``).
-
     """
 
     def __init__(
@@ -63,19 +63,144 @@ class HMM:
 
         self._check_matrices_conditioning()
 
+    # pi, A and B are respectively init_probas, transitions and emissions
+    # matrices. _log_pi, _log_A and _log_B are updated each time pi, A, or B
+    # are updated, respectively. Consider these private (and bug-prone :)),
+    # Updating transitions would not update _log_A.
+    @property
+    def pi(self) -> np.ndarray:
+        """It returns the initial probabilities array.
+
+        Returns
+        -------
+        numpy.ndarray
+            The initial probabilities array.
+        """
+
+        return self.init_probas
+
+    @pi.setter
+    def pi(self, value: np.ndarray) -> None:
+        """It updates the value of the initial probabilities array.
+
+        Parameters
+        ----------
+        value: numpy.ndarray
+            The new initial probabilities.
+        """
+
+        self.init_probas = value
+        self._recompute_log_pi = True
+
+    @property
+    def _log_pi(self) -> np.ndarray:
+        """It updates and returns the log of the initial probabilities array.
+
+        Returns
+        -------
+        numpy.ndarray
+            The log of the initial probabilities array.
+        """
+
+        if getattr(self, "_recompute_log_pi", True):
+            self.__log_pi = np.log(self.pi)
+            self._recompute_log_pi = False
+        return self.__log_pi
+
+    @property
+    def A(self) -> np.ndarray:
+        """It returns the hidden states transition matrix.
+
+        Returns
+        -------
+        numpy.ndarray
+            The hidden states transition matrix.
+        """
+
+        return self.transitions
+
+    @A.setter
+    def A(self, value: np.ndarray) -> None:
+        """It updates the hidden states transition matrix.
+
+        Parameters
+        ----------
+        value: numpy.ndarray
+            The new transition matrix.
+        """
+
+        self.transitions = value
+        self._recompute_log_A = True
+
+    @property
+    def _log_A(self) -> np.ndarray:
+        """It updates and returns the logarithm of the hidden states transition matrix.
+
+        Returns
+        -------
+        numpy.ndarray
+            The logarithm of the hidden states transition matrix.
+        """
+
+        if getattr(self, "_recompute_log_A", True):
+            self.__log_A = np.log(self.A)
+            self._recompute_log_A = False
+        return self.__log_A
+
+    @property
+    def B(self) -> np.ndarray:
+        """It returns the emission matrix.
+
+        Returns
+        -------
+        numpy.ndarray
+            The emission matrix.
+        """
+
+        return self.emissions
+
+    @B.setter
+    def B(self, value: np.ndarray) -> None:
+        """It updates the emission matrix.
+
+        Parameters
+        ----------
+        value: numpy.ndarray
+            The new emission matrix.
+        """
+
+        self.emissions = value
+        self._recompute_log_B = True
+
+    @property
+    def _log_B(self) -> np.ndarray:
+        """It updates and returns the logarithm of the emission matrix.
+
+        Returns
+        -------
+        numpy.ndarray
+            The logarithm of the emission matrix.
+        """
+
+        if getattr(self, "_recompute_log_B", True):
+            self.__log_B = np.log(self.B)
+            self._recompute_log_B = False
+        return self.__log_B
+
     def log_likelihood(self, sequences: Sequences) -> float:
         """Compute log-likelihood of sequences.
 
         Parameters
         ----------
-        sequences : array-like of shape (n_seq, n_obs) or list (or numba typed list) \
-                of iterables of variable length
-            The sequences of observable states
+        sequences: hmmkay._typing.Sequences
+            The sequences of observable states.
 
         Returns
         -------
-        log_likelihood : array of shape (n_seq,)
+        float
+            The total log-likelihood.
         """
+
         total_log_likelihood = 0
         sequences, n_obs_max = check_sequences(sequences)
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs_max), dtype=np.float32)
@@ -84,26 +209,25 @@ class HMM:
         return total_log_likelihood
 
     def decode(self, sequences: Sequences) -> tuple[Sequences, np.ndarray]:
-        """Decode sequences with Viterbi algorithm.
+        """Decode sequences using the Viterbi algorithm.
 
         Given a sequence of observable states, return the sequence of hidden
         states that most-likely generated the input.
 
         Parameters
         ----------
-        sequences : array-like of shape (n_seq, n_obs) or list (or numba typed list) \
-                of iterables of variable length
-            The sequences of observable states
+        sequences: hmmkay._typing.Sequences
+            The sequences of observable states.
 
         Returns
         -------
-        best_paths : ndarray of shape (n_seq, n_obs) or list of ndarray of \
-            variable length
+        hmmkay._typing.Sequences
             The most likely sequences of hidden states.
-        log_probabilities : ndarray of shape (n_seq,)
+        numpy.ndarray
             log-probabilities of the joint sequences of observable and hidden
             states.
         """
+
         sequences, n_obs_max = check_sequences(sequences)
 
         hidden_states_sequences = []
@@ -133,19 +257,21 @@ class HMM:
 
         Parameters
         ----------
-        n_seq : int, default=10
-            Number of sequences to sample
-        n_obs : int, default=10
-            Number of observations per sequence
-        random_state: int or np.random.RandomState instance, default=None
+        n_seq : int, optional
+            Number of sequences to sample. Default: 10.
+        n_obs : int, optional
+            Number of observations per sequence. Default: 10.
+        random_state: int or np.random.RandomState instance, optional
             Controls the RNG, see `scikt-learn glossary
             <https://scikit-learn.org/stable/glossary.html#term-random-state>`_
-            for details.
+            for details. Default: None.
 
         Returns
         -------
-        hidden_states_sequences : ndarray of shape (n_seq, n_obs)
-        observable_states_sequences : ndarray of shape (n_seq, n_obs)
+        numpy.ndarray
+            Hidden states sequences.
+        numpy.ndarray
+            Observable states sequences.
         """
         # TODO: allow n_obs_max
 
@@ -168,22 +294,23 @@ class HMM:
 
         Parameters
         ----------
-        sequences : array-like of shape (n_seq, n_obs) or list (or numba typed list) \
-                of iterables of variable length
-            The sequences of observable states
+        sequences: hmmkay._typing.Sequences
+            The sequences of observable states.
 
         Returns
         -------
-        self : HMM instance
+        hmmkay.HMM
+            The estimated hidden markov model instance.
         """
+
         sequences, n_obs_max = check_sequences(sequences)
         log_alpha = np.empty(shape=(self.n_hidden_states, n_obs_max))
         log_beta = np.empty(shape=(self.n_hidden_states, n_obs_max))
-        # E[i, j, t] = P(st = i, st+1 = j / O, lambda)
+        # E[i, j, t] = P(s_t = i, s_{t+1} = j | O, lambda)
         log_E = np.empty(
             shape=(self.n_hidden_states, self.n_hidden_states, n_obs_max - 1)
         )
-        # g[i, t] = P(st = i / O, lambda)
+        # g[i, t] = P(s_t = i | O, lambda)
         log_gamma = np.empty(shape=(self.n_hidden_states, n_obs_max))
 
         for _ in range(self.n_iter):
@@ -201,85 +328,62 @@ class HMM:
             self._check_matrices_conditioning()
         return self
 
-    def _viterbi(self, seq, log_V, back_path):
-        # dummy wrapper for conveniency
-        _viterbi(seq, self._log_pi, self._log_A, self._log_B, log_V, back_path)
+    def _viterbi(self, seq, log_V, back_path) -> None:
+        # dummy wrapper for convenience
+        return _viterbi(seq, self._log_pi, self._log_A, self._log_B, log_V, back_path)
 
-    def _forward(self, seq, log_alpha):
-        # dummy wrapper for conveniency
+    def _forward(self, seq, log_alpha) -> float:
+        # dummy wrapper for convenience
         return _forward(seq, self._log_pi, self._log_A, self._log_B, log_alpha)
 
-    def _backward(self, seq, log_beta):
-        # dummy wrapper for conveniency
+    def _backward(self, seq, log_beta) -> None:
+        # dummy wrapper for convenience
         return _backward(seq, self._log_pi, self._log_A, self._log_B, log_beta)
 
-    def _check_matrices_conditioning(self):
+    def _check_matrices_conditioning(self) -> None:
+        """Check the matrices in the model instance.
+
+        Raises
+        ------
+        ValueError
+            When a probabilities array does not sum to 1.
+        """
 
         check_array_sums_to_1(self.pi, "init_probas")
         for s in range(self.n_hidden_states):
             check_array_sums_to_1(self.A[s], f"Row {s} of A")
             check_array_sums_to_1(self.B[s], f"Row {s} of B")
 
-    # pi, A and B are respectively init_probas, transitions and emissions
-    # matrices. _log_pi, _log_A and _log_B are updated each time pi, A, or B
-    # are updated, respectively. Consider these private (and bug-prone :)),
-    # Updating transitions would not update _log_A.
-    @property
-    def pi(self) -> np.ndarray:
-        return self.init_probas
-
-    @pi.setter
-    def pi(self, value: np.ndarray) -> None:
-        self.init_probas = value
-        self._recompute_log_pi = True
-
-    @property
-    def _log_pi(self) -> np.ndarray:
-        if getattr(self, "_recompute_log_pi", True):
-            self.__log_pi = np.log(self.pi)
-            self._recompute_log_pi = False
-        return self.__log_pi
-
-    @property
-    def A(self) -> np.ndarray:
-        return self.transitions
-
-    @A.setter
-    def A(self, value: np.ndarray) -> None:
-        self.transitions = value
-        self._recompute_log_A = True
-
-    @property
-    def _log_A(self) -> np.ndarray:
-        if getattr(self, "_recompute_log_A", True):
-            self.__log_A = np.log(self.A)
-            self._recompute_log_A = False
-        return self.__log_A
-
-    @property
-    def B(self) -> np.ndarray:
-        return self.emissions
-
-    @B.setter
-    def B(self, value: np.ndarray) -> None:
-        self.emissions = value
-        self._recompute_log_B = True
-
-    @property
-    def _log_B(self) -> np.ndarray:
-        if getattr(self, "_recompute_log_B", True):
-            self.__log_B = np.log(self.B)
-            self._recompute_log_B = False
-        return self.__log_B
-
 
 @njit(cache=True)
 def _sample_one(
     n_obs: int, pi: np.ndarray, A: np.ndarray, B: np.ndarray, seed: int
 ) -> tuple[list[np.intp], list[np.intp]]:
-    """Return (observations, hidden_states) sample"""
-    np.random.seed(seed)  # local to this numba function, not global numpy
+    """Return both the sampled hidden states and observable sequences.
 
+    Parameters
+    ----------
+    n_obs: int
+        The number of observations in the sequences.
+    pi: numpy.ndarray
+        The initial probabilities array.
+    A: numpy.ndarray
+        The hidden states transition matrix.
+    B: numpy.ndarray
+        The emission matrix.
+    seed: int
+        The seed for the RNG.
+
+    Returns
+    -------
+    list[numpy.intp]
+        The sampled hidden states sequence.
+    list[numpy.intp]
+        The sampled observable states sequence.
+    """
+
+    # TODO: review this RNG
+    np.random.seed(seed)  # local to this numba function, not global numpy
     observations = []
     hidden_states = []
     s = choice(pi)
@@ -288,7 +392,6 @@ def _sample_one(
         obs = choice(B[s])
         observations.append(obs)
         s = choice(A[s])
-
     return hidden_states, observations
 
 
@@ -300,12 +403,32 @@ def _forward(
     log_B: np.ndarray,
     log_alpha: np.ndarray,
 ) -> float:
-    """Fill log_alpha array with log probabilities, return log-likelihood"""
-    # alpha[i, t] = P(O1, ... Ot, st = i / lambda)
-    # reccursion is alpha[i, t] = B[i, Ot] * sumj(alpha[j, t - 1] * A[i, j])
+    """It fills log_alpha array with log-probabilities and returns log-likelihood.
+
+    Parameters
+    ----------
+    seq: numpy.ndarray
+        A sequence.
+    log_pi: numpy.ndarray
+        The logarithm of the initial probabilities array.
+    log_A: numpy.ndarray
+        The logarithm of the hidden states transition matrix.
+    log_B: numpy.ndarray
+        The logarithm of the emission matrix.
+    log_alpha: numpy.ndarray
+        Empty array to fill.
+
+    Returns
+    -------
+    float
+        The log-likelihood calculated from log_alpha.
+    """
+
+    # alpha[i, t] = P(O_1, ... O_t, s_t = i | lambda)
+    # reccursion is alpha[i, t] = B[i, Ot] * sum_j(alpha[j, t - 1] * A[i, j])
     # which becomes (when applying log)
-    # log_alpha[i, t] = log(B[i, Ot]) +
-    #                   logsum_jexp(log_alpha[j, t - 1] + _log_A[i, j])
+    # log_alpha[i, t] = log(B[i, O_t]) +
+    #                   log(sum_j(exp(log_alpha[j, t - 1] + _log_A[i, j])))
     # since log(sum(ai . bj)) =
     #       log(sum(exp(log_ai + log_bi)))
 
@@ -329,8 +452,23 @@ def _backward(
     log_B: np.ndarray,
     log_beta: np.ndarray,
 ) -> None:
-    """Fills beta array with log probabilities"""
-    # beta[i, t] = P(Ot+1, ... OT, / st = i, lambda)
+    """It fills log_beta array with log-probabilities.
+
+    Parameters
+    ----------
+    seq: numpy.ndarray
+        A sequence.
+    log_pi: numpy.ndarray
+        The logarithm of the initial probabilities array.
+    log_A: numpy.ndarray
+        The logarithm of the hidden states transition matrix.
+    log_B: numpy.ndarray
+        The logarithm of the emission matrix.
+    log_beta: numpy.ndarray
+        Empty array to fill.
+    """
+
+    # beta[i, t] = P(O_{t+1}, ... O_T, / s_t = i, lambda)
 
     n_obs = seq.shape[0]
     n_hidden_states = log_pi.shape[0]
@@ -352,8 +490,26 @@ def _viterbi(
     log_V: np.ndarray,
     back_path: np.ndarray,
 ) -> None:
-    """Fill V array with log probabilities and back_path with back links"""
-    # V[i, t] = max_{s1...st-1} P(O1, ... Ot, s1, ... st-1, st=i / lambda)
+    """It fills both log_V array with log-probabilities and back_path with back links.
+
+    Parameters
+    ----------
+    seq: numpy.ndarray
+        A sequence.
+    log_pi: numpy.ndarray
+        The logarithm of the initial probabilities array.
+    log_A: numpy.ndarray
+        The logarithm of the hidden states transition matrix.
+    log_B: numpy.ndarray
+        The logarithm of the emission matrix.
+    log_V: numpy.ndarray
+        Empty array to fill with log probabilities.
+    back_path: numpy.ndarray
+        Empty array to fill with back links.
+    """
+
+    # V[i, t] = max_{s_1...s{t-1}} P(O_1, ... O_t, s_1, ... s_{t-1}, s_t=i | lambda)
+
     n_obs = seq.shape[0]
     n_hidden_states = log_pi.shape[0]
     log_V[:, 0] = log_pi + log_B[:, seq[0]]
@@ -371,7 +527,20 @@ def _viterbi(
 def _get_best_path(
     log_V: np.ndarray, back_path: np.ndarray, best_path: np.ndarray
 ) -> float:
-    """Fill out best_path array"""
+    """It fills out the best_path array.
+
+    Parameters
+    ----------
+    log_V: np.ndarray
+        Matrix of log-probabilities.
+    back_path: np.ndarray
+        The back links.
+
+    Returns
+    -------
+    float
+        The maximum log-probability.
+    """
     n_obs = best_path.shape[0]
     s = argmax(log_V[:, n_obs - 1])
     out = log_V[s, n_obs - 1]
@@ -392,11 +561,43 @@ def _do_EM_step(
     log_E: np.ndarray,
     log_gamma: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return A, B and C after EM step."""
+    """Return A, B and C after one EM step.
+
+    Parameters
+    ----------
+    sequences: hmmkay._typing.FormattedSequences
+        The formatted input sequences.
+    log_pi: numpy.ndarray
+        The logarithm of the initial probabilities array.
+    log_A: numpy.ndarray
+        The logarithm of the hidden states transition matrix.
+    log_B: numpy.ndarray
+        The logarithm of the emission matrix.
+    TODO: Review parameters below.
+    log_alpha: numpy.ndarray
+        The log-alpha-probabilities matrix to be filled in the forward step.
+    log_beta: numpy.ndarray
+        The log-beta-probabilities matrix to be filled in the backward step.
+    log_E: numpy.ndarray
+        The tensor of log-values combinations to be filled.
+    log_gamma: numpy.ndarray
+        The matrix of alpha and beta log-probabilities to be filled.
+
+    Returns
+    -------
+    numpy.ndarray
+        The new initial probabilities array.
+    numpy.ndarray
+        The new hidden states transition matrix.
+    numpy.ndarray
+        The new emission matrix.
+    """
+
     # E STEP (over all sequences)
     # Accumulators for parameters of the hmm. They are summed over for
     # each sequence, then normalized in the M-step.
     # These are homogeneous to probabilities, not log-probabilities.
+
     pi_acc = np.zeros_like(log_pi)
     A_acc = np.zeros_like(log_A)
     B_acc = np.zeros_like(log_B)
