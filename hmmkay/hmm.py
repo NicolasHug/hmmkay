@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import cast
 
 import numpy as np
 import numpy.typing as npt
@@ -248,7 +249,7 @@ class HMM:
             # All sequences have the same length
             hidden_states_sequences = np.array(hidden_states_sequences)
 
-        return hidden_states_sequences, np.array(log_probas)
+        return cast(FormattedSequences, hidden_states_sequences), np.array(log_probas)
 
     def sample(
         self, n_seq: int = 10, n_obs: int = 10, random_state: Seed = None
