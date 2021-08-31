@@ -2,7 +2,8 @@
 The utils module contains helpers for input checking, parameter generation and
 sequence generation.
 """
-from typing import Union, cast
+from __future__ import annotations
+from typing import cast, TYPE_CHECKING, Union
 
 import hmmlearn.hmm as hl
 import numpy as np
@@ -11,7 +12,9 @@ from numba.typed import List
 from numpy.random import mtrand
 
 from _typing import FormattedSequences, Seed, Sequences
-from hmm import HMM
+
+if TYPE_CHECKING:
+    from hmm import HMM
 
 __all__ = ["make_observation_sequences", "make_proba_matrices", "check_sequences"]
 
