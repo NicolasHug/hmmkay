@@ -238,6 +238,7 @@ class HMM:
         back_path = np.empty(shape=(self.n_hidden_states, n_obs_max), dtype=np.int32)
 
         for seq in sequences:
+            seq = cast(np.ndarray, seq)
             n_obs = seq.shape[0]
             self._viterbi(seq, log_V, back_path)
             best_path = np.empty(n_obs, dtype=np.int32)
